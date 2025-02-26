@@ -1,0 +1,58 @@
+# QuantumAC Checks Configuration
+# Package: fi.tj88888.quantumAC
+
+checks:
+  # Movement Checks
+  Flight:
+    enabled: true
+    max-vl: 20
+    punish-command: "kick %player% Unfair Advantage - Flight"
+    settings:
+      max-air-time: 1.0
+      min-fall-speed: 0.03
+      buffer-size: 5
+
+  SpeedA:
+    enabled: true
+    max-vl: 25
+    punish-command: "kick %player% Unfair Advantage - Speed"
+    settings:
+      max-speed: 0.7
+      buffer-size: 10
+      ice-multiplier: 1.5
+
+  # Combat Checks
+  KillAura:
+    enabled: true
+    max-vl: 15
+    punish-command: "kick %player% Unfair Advantage - Combat"
+    settings:
+      max-angle: 150.0
+      min-delay: 50
+      buffer-size: 5
+
+  AimCheck:
+    enabled: true
+    max-vl: 25
+    punish-command: "kick %player% Unfair Advantage - Aim"
+    settings:
+      max-delta-yaw: 30.0
+      max-delta-pitch: 20.0
+      buffer-size: 10
+
+  # Packet Checks
+  BadPackets:
+    enabled: true
+    max-vl: 10
+    punish-command: "kick %player% Unfair Advantage - Bad Packets"
+    settings:
+      buffer-size: 3
+
+  Timer:
+    enabled: true
+    max-vl: 15
+    punish-command: "kick %player% Unfair Advantage - Timer"
+    settings:
+      max-packets-per-second: 22.0
+      min-packets-per-second: 15.0
+      buffer-size: 10.0

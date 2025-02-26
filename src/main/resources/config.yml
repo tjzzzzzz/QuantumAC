@@ -1,0 +1,49 @@
+# QuantumAC Configuration
+# Package: fi.tj88888.quantumAC
+
+# General settings
+update-checker: false
+debug-mode: false
+
+# Database settings
+database:
+  # MongoDB connection settings
+  mongodb:
+    enabled: true
+    uri: "mongodb+srv://admin:Aw3r6doGWuGOP9ma@minecraft.jtyck.mongodb.net/?retryWrites=true&w=majority&appName=Minecraft"
+    database: "quantumac"
+    username: ""
+    password: ""
+
+# Alert settings
+alerts:
+  enabled: true
+  # Detailed alerts with more technical information
+  verbose: false
+
+# Violation settings
+violations:
+  # Log violations to file
+  log-to-file: false
+  # Log violations to database
+  log-to-database: true
+  # Auto-decrease violation levels over time (seconds)
+  decrease-interval: 60
+  # Amount to decrease per interval
+  decrease-amount: 0.25
+
+# Punishment settings
+punishments:
+  # Enable automated punishments based on violation levels
+  enabled: false
+  # Log punishments to console
+  log-to-console: true
+
+# Performance settings
+performance:
+  # Maximum number of threads to use for packet processing
+  max-threads: 4
+  # Maximum queue size for packet processing
+  max-queue-size: 1000
+  # Skip checks when TPS is below this value
+  min-tps: 17.5

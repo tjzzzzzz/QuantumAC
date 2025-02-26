@@ -1,0 +1,51 @@
+name: QuantumAC
+version: 1.0.0
+main: fi.tj88888.quantumAC.QuantumAC
+api-version: 1.16
+description: Advanced packet-based anti-cheat system
+author: tj88888
+website: https://example.com/quantumac
+depend: [ProtocolLib]
+softdepend: []
+
+commands:
+  quantumac:
+    description: Main command for QuantumAC
+    usage: /quantumac [help|reload|alerts|history|stats]
+    aliases: [qac, quantum, anticheat]
+    permission: quantumac.command
+
+permissions:
+  quantumac.command:
+    description: Allows access to the basic QuantumAC command
+    default: op
+  quantumac.reload:
+    description: Allows reloading QuantumAC configurations
+    default: op
+  quantumac.alerts:
+    description: Allows receiving cheat detection alerts
+    default: op
+  quantumac.bypass:
+    description: Bypasses all checks
+    default: false
+  quantumac.bypass.flight:
+    description: Bypasses flight check
+    default: false
+  quantumac.bypass.speed:
+    description: Bypasses speed check
+    default: false
+  quantumac.bypass.combat:
+    description: Bypasses combat checks
+    default: false
+  quantumac.bypass.timer:
+    description: Bypasses timer check
+    default: false
+  quantumac.history:
+    description: Allows viewing player violation history
+    default: op
+  quantumac.stats:
+    description: Allows viewing player statistics
+    default: op
+  quantumac.update:
+    description: Allows receiving update notifications
+    default: op

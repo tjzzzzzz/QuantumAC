@@ -1,0 +1,30 @@
+# QuantumAC Messages Configuration
+# Package: fi.tj88888.quantumAC
+
+# Prefix for all messages
+prefix: "&7[&bQuantumAC&7] "
+
+# Alert messages
+alert-format: "%prefix%&b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Ping: &b%ping%ms &7| TPS: &b%tps%"
+verbose-alert-format: "%prefix%&b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Loc: &b%world% &7(&b%x%, %y%, %z%&7) | Ping: &b%ping%ms &7| TPS: &b%tps%"
+
+# Command messages
+alerts-enabled: "%prefix%&aAlert notifications enabled."
+alerts-disabled: "%prefix%&cAlert notifications disabled."
+reload-success: "%prefix%&aConfigurations reloaded successfully."
+no-permission: "%prefix%&cYou don't have permission to use this command."
+player-not-found: "%prefix%&cPlayer not found or not online."
+invalid-argument: "%prefix%&cInvalid argument. Use /quantumac help for a list of commands."
+
+# Punishment messages
+kick-message: "%prefix%&cYou have been kicked for &b%check% &cviolations."
+ban-message: "%prefix%&cYou have been banned for &b%check% &cviolations."
+
+# Help messages
+help-header: "&7=== &bQuantumAC Commands &7==="
+help-info: "&b/quantumac &7- Show plugin information"
+help-help: "&b/quantumac help &7- Show commands list"
+help-reload: "&b/quantumac reload &7- Reload plugin configurations"
+help-alerts: "&b/quantumac alerts &7- Toggle violation alerts"
+help-history: "&b/quantumac history <player> [limit] &7- View player violation history"
+help-stats: "&b/quantumac stats <player> &7- View player statistics"
