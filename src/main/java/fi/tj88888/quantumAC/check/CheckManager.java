@@ -1,7 +1,7 @@
 package fi.tj88888.quantumAC.check;
 
 import fi.tj88888.quantumAC.QuantumAC;
-import fi.tj88888.quantumAC.check.movement.SpeedA;
+import fi.tj88888.quantumAC.check.movement.*;
 import fi.tj88888.quantumAC.check.packet.TimerA;
 import fi.tj88888.quantumAC.data.PlayerData;
 import com.comphenix.protocol.events.PacketEvent;
@@ -25,7 +25,13 @@ public class CheckManager {
     }
 
     private void registerChecks() {
+        // Speed Checks
         registerCheck(SpeedA.class);
+        // Fly Checks
+        registerCheck(FlyA.class);
+        registerCheck(FlyB.class);
+        registerCheck(FlyC.class);
+        // Packet Checks
         registerCheck(TimerA.class);
 
     }

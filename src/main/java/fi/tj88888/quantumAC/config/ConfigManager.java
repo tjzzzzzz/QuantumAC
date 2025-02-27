@@ -97,7 +97,7 @@ public class ConfigManager {
     }
 
     public String getAlertPrefix() {
-        return messagesConfig.getString("prefix", "&7[&bQuantumAC&7] ");
+        return messagesConfig.getString("prefix", "&7[&bQuantum&7] ");
     }
 
     public String getAlertFormat() {

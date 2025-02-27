@@ -2,16 +2,15 @@ package fi.tj88888.quantumAC.listener;
 
 import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.Check;
+import fi.tj88888.quantumAC.check.movement.*;
 import fi.tj88888.quantumAC.check.packet.TimerA;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.*;
+import org.bukkit.util.Vector;
 
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +35,8 @@ public class ConnectionListener implements Listener {
 
         // Call TimerA join method
         getTimerACheck(player).onPlayerJoin();
+
+
     }
 
     @EventHandler
@@ -56,9 +57,12 @@ public class ConnectionListener implements Listener {
 
         Player player = event.getPlayer();
 
-        // Notify TimerA check
+        // Notify checks
         getTimerACheck(player).onPlayerTeleport();
         getSpeedACheck(player).onPlayerTeleport();
+        getFlyACheck(player).onPlayerTeleport();
+        getFlyBCheck(player).onPlayerTeleport();
+        getFlyCCheck(player).onPlayerTeleport();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -67,6 +71,8 @@ public class ConnectionListener implements Listener {
 
         // Notify TimerA check
         getTimerACheck(player).onWorldChange();
+
+
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -78,6 +84,23 @@ public class ConnectionListener implements Listener {
 
         // Notify SpeedA check about the damage (to prevent false positives)
         getSpeedACheck(player).onPlayerDamage();
+        getFlyACheck(player).onPlayerDamage();
+        getFlyBCheck(player).onPlayerDamage();
+        getFlyCCheck(player).onPlayerDamage();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onVelocity(PlayerVelocityEvent event) {
+        if (event.isCancelled()) return;
+
+        Player player = event.getPlayer();
+        Vector velocity = event.getVelocity();
+
+        // Notify all necessary checks about the velocity change
+        getFlyACheck(player).onPlayerVelocity(velocity);
+        getFlyBCheck(player).onPlayerVelocity(velocity);
+        getFlyCCheck(player).onPlayerVelocity(velocity);
+        getSpeedACheck(player).onPlayerVelocity(velocity);
     }
 
     // Helper method to get TimerA check for a player
@@ -106,4 +129,48 @@ public class ConnectionListener implements Listener {
         return new fi.tj88888.quantumAC.check.movement.SpeedA(plugin,
                 plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
     }
+
+
+
+    // Helper method to get FlyA check for a player
+    private FlyA getFlyACheck(Player player) {
+        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
+        for (Check check : checks) {
+            if (check instanceof FlyA) {
+                return (FlyA) check;
+            }
+        }
+
+        // If check not found, create new instance (shouldn't happen normally)
+        return new FlyA(plugin,
+                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+    }
+
+    private FlyB getFlyBCheck(Player player) {
+        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
+        for (Check check : checks) {
+            if (check instanceof FlyB) {
+                return (FlyB) check;
+            }
+        }
+
+        // If check not found, create new instance (shouldn't happen normally)
+        return new FlyB(plugin,
+                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+    }
+
+    private FlyC getFlyCCheck(Player player) {
+        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
+        for (Check check : checks) {
+            if (check instanceof FlyC) {
+                return (FlyC) check;
+            }
+        }
+
+        // If check not found, create new instance (shouldn't happen normally)
+        return new FlyC(plugin,
+                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+    }
+
+
 }
