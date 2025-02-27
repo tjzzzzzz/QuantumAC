@@ -25,6 +25,9 @@ permissions:
   quantumac.alerts:
     description: Allows receiving cheat detection alerts
     default: op
+  quantumac.verbose:
+    description: Allows users to receive detailed alerts.
+    default: op
   quantumac.bypass:
     description: Bypasses all checks
     default: false

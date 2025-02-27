@@ -173,4 +173,9 @@ public class ConfigManager {
     public FileConfiguration getMessagesConfig() {
         return messagesConfig;
     }
+
+    public String getVerboseAlertFormat() {
+        return messagesConfig.getString("verbose-alert-format",
+                "%prefix% &b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Loc: &b%world% &7(&b%x%, %y%, %z%&7) | Ping: &b%ping%ms &7| TPS: &b%tps%");
+    }
 }

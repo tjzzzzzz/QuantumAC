@@ -2,10 +2,11 @@
 # Package: fi.tj88888.quantumAC
 
 # Prefix for all messages
-prefix: "&7[&bQuantumAC&7] "
+prefix: "&7[&bQuantum&7] "
 
 # Alert messages
-alert-format: "%prefix%&b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Ping: &b%ping%ms &7| TPS: &b%tps%"
+# Alert messages
+alert-format: "%prefix%&b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Ping: &b%ping%ms &7| TPS: &b%tps%"
 verbose-alert-format: "%prefix%&b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Loc: &b%world% &7(&b%x%, %y%, %z%&7) | Ping: &b%ping%ms &7| TPS: &b%tps%"
 
 # Command messages

@@ -28,11 +28,11 @@ public class CheckManager {
         // Speed Checks
         registerCheck(SpeedA.class);
         // Fly Checks
-        registerCheck(FlyA.class);
-        registerCheck(FlyB.class);
-        registerCheck(FlyC.class);
+        //registerCheck(FlyA.class);
+        //registerCheck(FlyB.class);
+        //registerCheck(FlyC.class);
         // Packet Checks
-        registerCheck(TimerA.class);
+        //registerCheck(TimerA.class);
 
     }
 

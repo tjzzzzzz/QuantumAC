@@ -2,7 +2,9 @@ package fi.tj88888.quantumAC.data;
 
 import fi.tj88888.quantumAC.check.Check;
 import fi.tj88888.quantumAC.util.MovementData;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -256,4 +258,9 @@ public class PlayerData {
         exemptionTimers.entrySet().removeIf(entry -> entry.getValue() <= now);
         exempt = !exemptionTimers.isEmpty();
     }
+
+    public Player getPlayer() {
+        return Bukkit.getPlayer(this.uuid); // Retrieve the Player object by UUID
+    }
+
 }

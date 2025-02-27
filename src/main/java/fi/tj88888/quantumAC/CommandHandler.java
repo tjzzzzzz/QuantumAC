@@ -125,6 +125,24 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 showPlayerStats(sender, targetPlayer);
                 break;
 
+            case "verbose":
+
+                if (!sender.hasPermission("quantumac.verbose")) {
+                    sender.sendMessage(ChatUtil.colorize("&cYou don't have permission to use this command."));
+                    return true;
+                }
+
+                player = (Player) sender;
+                uuid = player.getUniqueId();
+
+                plugin.getAlertManager().toggleVerbose(uuid);
+
+                boolean verboseEnabled = plugin.getAlertManager().hasVerboseEnabled(uuid);
+                sender.sendMessage(ChatUtil.colorize(
+                        verboseEnabled ? "&aVerbose mode enabled. Alerts will show detailed information."
+                                : "&cVerbose mode disabled. Alerts will now show minimal information."));
+                break;
+
             default:
                 sender.sendMessage(ChatUtil.colorize("&cUnknown command. Use /quantumac help for a list of commands."));
         }
