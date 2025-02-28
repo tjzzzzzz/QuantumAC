@@ -76,6 +76,8 @@ public class QuantumAC extends JavaPlugin {
 
         getLogger().info(ChatColor.GREEN + "QuantumAC has been enabled!");
         getLogger().info(ChatColor.GREEN + "Async packet-based anticheat core loaded successfully.");
+        getServer().getScheduler().runTaskTimer(this,
+                () -> playerDataManager.updatePlayerCachedData(), 1L, 5L);
     }
 
     @Override
@@ -101,15 +103,32 @@ public class QuantumAC extends JavaPlugin {
         // Register for specific packets - expand this list as needed
         protocolManager.addPacketListener(
                 new PacketAdapter(this, ListenerPriority.NORMAL,
+                        // Movement packets
                         PacketType.Play.Client.POSITION,
                         PacketType.Play.Client.POSITION_LOOK,
                         PacketType.Play.Client.LOOK,
                         PacketType.Play.Client.FLYING,
+
+                        // Entity interaction
                         PacketType.Play.Client.USE_ENTITY,
                         PacketType.Play.Client.ARM_ANIMATION,
+
+                        // Block interaction
                         PacketType.Play.Client.BLOCK_DIG,
                         PacketType.Play.Client.BLOCK_PLACE,
-                        PacketType.Play.Client.ABILITIES) {
+
+                        // Player state
+                        PacketType.Play.Client.ABILITIES,
+
+                        // New packet types needed for BadPackets checks
+                        PacketType.Play.Client.ENTITY_ACTION,  // For sprint/sneak detection
+                        PacketType.Play.Client.TRANSACTION,    // For transaction timing checks
+                        PacketType.Play.Client.KEEP_ALIVE,     // For lag/timer detection
+                        PacketType.Play.Client.WINDOW_CLICK,   // For inventory actions
+                        PacketType.Play.Client.CUSTOM_PAYLOAD, // For client detection
+                        PacketType.Play.Client.SETTINGS,       // For client settings checks
+                        PacketType.Play.Client.CLOSE_WINDOW    // For inventory tracking
+                ) {
 
                     @Override
                     public void onPacketReceiving(PacketEvent event) {

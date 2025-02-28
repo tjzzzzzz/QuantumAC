@@ -1,5 +1,6 @@
 package fi.tj88888.quantumAC;
 
+import fi.tj88888.quantumAC.check.movement.rotation.RotationA;
 import fi.tj88888.quantumAC.data.PlayerData;
 import fi.tj88888.quantumAC.log.ViolationLog;
 import fi.tj88888.quantumAC.util.ChatUtil;
@@ -10,15 +11,17 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Handles plugin commands
+ */
 public class CommandHandler implements CommandExecutor, TabCompleter {
 
     private final QuantumAC plugin;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     public CommandHandler(QuantumAC plugin) {
         this.plugin = plugin;
@@ -126,6 +129,10 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 break;
 
             case "verbose":
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatUtil.colorize("&cOnly players can toggle verbose mode."));
+                    return true;
+                }
 
                 if (!sender.hasPermission("quantumac.verbose")) {
                     sender.sendMessage(ChatUtil.colorize("&cYou don't have permission to use this command."));
@@ -141,6 +148,50 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatUtil.colorize(
                         verboseEnabled ? "&aVerbose mode enabled. Alerts will show detailed information."
                                 : "&cVerbose mode disabled. Alerts will now show minimal information."));
+                break;
+
+            case "debug":
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatUtil.colorize("&cOnly players can toggle debug mode."));
+                    return true;
+                }
+
+                if (!sender.hasPermission("quantumac.debug")) {
+                    sender.sendMessage(ChatUtil.colorize("&cYou don't have permission to use this command."));
+                    return true;
+                }
+
+                if (args.length < 2) {
+                    sender.sendMessage(ChatUtil.colorize("&cUsage: /quantumac debug <rotations>"));
+                    return true;
+                }
+
+                switch (args[1].toLowerCase()) {
+                    case "rotations": // Subcommand for rotations
+                        Player rotationPlayer = (Player) sender;
+                        PlayerData rotationPlayerData = plugin.getPlayerDataManager().getPlayerData(rotationPlayer.getUniqueId());
+
+                        if (rotationPlayerData == null) {
+                            sender.sendMessage(ChatUtil.colorize("&cPlayer data not found. Debug mode cannot be toggled."));
+                            return true;
+                        }
+
+                        RotationA rotationCheck = plugin.getCheckManager().getCheck(rotationPlayer.getUniqueId(), RotationA.class); // Assuming you have a method to get the check
+                        if (rotationCheck == null) {
+                            sender.sendMessage(ChatUtil.colorize("&cRotation debug is not available."));
+                            return true;
+                        }
+
+                        boolean isDebugEnabled = rotationCheck.toggleDebug(); // Assume this method toggles the flag and returns the new state
+                        sender.sendMessage(ChatUtil.colorize(isDebugEnabled
+                                ? "&aRotation debug mode enabled. Detailed rotation checks will be displayed."
+                                : "&cRotation debug mode disabled."));
+                        break;
+
+                    default:
+                        sender.sendMessage(ChatUtil.colorize("&cUnknown debug option. Available: &7rotations."));
+                        break;
+                }
                 break;
 
             default:
@@ -167,6 +218,11 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatUtil.colorize("&b/quantumac alerts &7- Toggle violation alerts"));
         sender.sendMessage(ChatUtil.colorize("&b/quantumac history <player> [limit] &7- View player violation history"));
         sender.sendMessage(ChatUtil.colorize("&b/quantumac stats <player> &7- View player statistics"));
+        sender.sendMessage(ChatUtil.colorize("&b/quantumac verbose &7- Toggle verbose alerts with detailed information"));
+
+        if (sender.hasPermission("quantumac.debug")) {
+            sender.sendMessage(ChatUtil.colorize("&b/quantumac debug &7- Toggle debug mode for checks"));
+        }
     }
 
     private void showViolationHistory(CommandSender sender, Player target, int limit) {
@@ -181,9 +237,12 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                     }
 
                     for (ViolationLog log : violations) {
+                        // Use getVl() instead of getViolationLevel()
+                        String timestamp = dateFormat.format(new Date(log.getTimestamp()));
                         sender.sendMessage(ChatUtil.colorize(
-                                "&b" + log.getCheckName() + " &7(" + log.getCheckType() + ") &7- VL: &b" +
-                                        String.format("%.1f", log.getViolationLevel()) + " &7- &b" + log.getDetails()
+                                "&7[" + timestamp + "] &b" + log.getCheckName() +
+                                        " &7(" + log.getCheckType() + ") &7- VL: &b" +
+                                        String.format("%.1f", log.getVl()) + " &7- &b" + log.getDetails()
                         ));
                     }
                 });
@@ -197,9 +256,20 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         }
 
         sender.sendMessage(ChatUtil.colorize("&7=== &b" + target.getName() + "'s Stats &7==="));
-        sender.sendMessage(ChatUtil.colorize("&bJoined: &7" + new java.util.Date(data.getJoinTime())));
+        sender.sendMessage(ChatUtil.colorize("&bJoined: &7" + dateFormat.format(new Date(data.getJoinTime()))));
         sender.sendMessage(ChatUtil.colorize("&bPing: &7" + data.getAveragePing() + "ms"));
         sender.sendMessage(ChatUtil.colorize("&bTotal Violations: &7" + data.getTotalViolations()));
+
+        // Add movement stats if available
+        if (data.getMovementData() != null) {
+            sender.sendMessage(ChatUtil.colorize("&7--- &bMovement Stats &7---"));
+            sender.sendMessage(ChatUtil.colorize("&bSpeed: &7" +
+                    String.format("%.2f", data.getMovementData().getDeltaXZ()) + " blocks/tick"));
+            sender.sendMessage(ChatUtil.colorize("&bYaw: &7" +
+                    String.format("%.1f", data.getMovementData().getYaw()) + "°"));
+            sender.sendMessage(ChatUtil.colorize("&bPitch: &7" +
+                    String.format("%.1f", data.getMovementData().getPitch()) + "°"));
+        }
     }
 
     @Override
@@ -209,7 +279,14 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 1) {
-            return Arrays.asList("help", "reload", "alerts", "history", "stats").stream()
+            List<String> commands = new ArrayList<>(Arrays.asList("help", "reload", "alerts", "history", "stats", "verbose"));
+
+            // Only add debug if they have permission
+            if (sender.hasPermission("quantumac.debug")) {
+                commands.add("debug");
+            }
+
+            return commands.stream()
                     .filter(s -> s.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
@@ -225,5 +302,4 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
 
         return new ArrayList<>();
     }
-
 }

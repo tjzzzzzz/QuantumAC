@@ -178,4 +178,77 @@ public class ConfigManager {
         return messagesConfig.getString("verbose-alert-format",
                 "%prefix% &b%player% &7failed &b%check% &7(&b%type%&7) &7VL: &b%vl% &7| Details: &b%details% &7| Loc: &b%world% &7(&b%x%, %y%, %z%&7) | Ping: &b%ping%ms &7| TPS: &b%tps%");
     }
+
+    /**
+     * Gets a boolean setting with a default fallback value
+     *
+     * @param checkName The name of the check
+     * @param setting The setting name
+     * @param defaultValue The default value if setting is not found
+     * @return The setting value or default if not found
+     */
+    public boolean getBooleanSetting(String checkName, String setting, boolean defaultValue) {
+        String path = "checks." + checkName + ".settings." + setting;
+        if (checksConfig.contains(path)) {
+            return checksConfig.getBoolean(path);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Gets a double setting with a default fallback value
+     *
+     * @param checkName The name of the check
+     * @param setting The setting name
+     * @param defaultValue The default value if setting is not found
+     * @return The setting value or default if not found
+     */
+    public double getDoubleSetting(String checkName, String setting, double defaultValue) {
+        String path = "checks." + checkName + ".settings." + setting;
+        if (checksConfig.contains(path)) {
+            return checksConfig.getDouble(path);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Gets an integer setting with a default fallback value
+     *
+     * @param checkName The name of the check
+     * @param setting The setting name
+     * @param defaultValue The default value if setting is not found
+     * @return The setting value or default if not found
+     */
+    public int getIntSetting(String checkName, String setting, int defaultValue) {
+        String path = "checks." + checkName + ".settings." + setting;
+        if (checksConfig.contains(path)) {
+            return checksConfig.getInt(path);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Gets a string setting with a default fallback value
+     *
+     * @param checkName The name of the check
+     * @param setting The setting name
+     * @param defaultValue The default value if setting is not found
+     * @return The setting value or default if not found
+     */
+    public String getStringSetting(String checkName, String setting, String defaultValue) {
+        String path = "checks." + checkName + ".settings." + setting;
+        if (checksConfig.contains(path)) {
+            return checksConfig.getString(path);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Check if verbose alerts are enabled
+     *
+     * @return true if verbose alerts are enabled
+     */
+    public boolean isVerboseAlerts() {
+        return config.getBoolean("alerts.verbose", false);
+    }
 }

@@ -1,101 +1,144 @@
 package fi.tj88888.quantumAC.log;
 
-import java.util.UUID;
-
+/**
+ * Represents a violation log entry
+ */
 public class ViolationLog {
 
-    private final UUID playerUuid;
     private final String playerName;
     private final String checkName;
     private final String checkType;
-    private final double violationLevel;
+    private final double vl;
     private final String details;
-    private final long timestamp;
     private final String world;
     private final double x;
     private final double y;
     private final double z;
     private final int ping;
     private final double tps;
+    private final long timestamp;
 
-    public ViolationLog(UUID playerUuid, String playerName, String checkName, String checkType,
-                        double violationLevel, String details, long timestamp, String world,
-                        double x, double y, double z, int ping, double tps) {
-        this.playerUuid = playerUuid;
+    public ViolationLog(String playerName, String checkName, String checkType, double vl, String details,
+                        String world, double x, double y, double z, int ping, double tps) {
         this.playerName = playerName;
         this.checkName = checkName;
         this.checkType = checkType;
-        this.violationLevel = violationLevel;
+        this.vl = vl;
         this.details = details;
-        this.timestamp = timestamp;
         this.world = world;
         this.x = x;
         this.y = y;
         this.z = z;
         this.ping = ping;
         this.tps = tps;
+        this.timestamp = System.currentTimeMillis();
     }
 
-    public UUID getPlayerUuid() {
-        return playerUuid;
-    }
-
+    /**
+     * Gets the player name
+     *
+     * @return Player name
+     */
     public String getPlayerName() {
         return playerName;
     }
 
+    /**
+     * Gets the check name
+     *
+     * @return Check name
+     */
     public String getCheckName() {
         return checkName;
     }
 
+    /**
+     * Gets the check type
+     *
+     * @return Check type
+     */
     public String getCheckType() {
         return checkType;
     }
 
-    public double getViolationLevel() {
-        return violationLevel;
+    /**
+     * Gets the violation level
+     *
+     * @return Violation level
+     */
+    public double getVl() {
+        return vl;
     }
 
+    /**
+     * Gets the violation details
+     *
+     * @return Violation details
+     */
     public String getDetails() {
         return details;
     }
 
-    public long getTimestamp() {
-        return timestamp;
-    }
-
+    /**
+     * Gets the world name
+     *
+     * @return World name
+     */
     public String getWorld() {
         return world;
     }
 
+    /**
+     * Gets the X coordinate
+     *
+     * @return X coordinate
+     */
     public double getX() {
         return x;
     }
 
+    /**
+     * Gets the Y coordinate
+     *
+     * @return Y coordinate
+     */
     public double getY() {
         return y;
     }
 
+    /**
+     * Gets the Z coordinate
+     *
+     * @return Z coordinate
+     */
     public double getZ() {
         return z;
     }
 
+    /**
+     * Gets the player's ping
+     *
+     * @return Player ping
+     */
     public int getPing() {
         return ping;
     }
 
+    /**
+     * Gets the server TPS
+     *
+     * @return Server TPS
+     */
     public double getTps() {
         return tps;
     }
 
-    @Override
-    public String toString() {
-        return String.format(
-                "%s failed %s (VL: %.1f) - %s",
-                playerName,
-                checkName,
-                violationLevel,
-                details
-        );
+    /**
+     * Gets the violation timestamp
+     *
+     * @return Timestamp in milliseconds
+     */
+    public long getTimestamp() {
+        return timestamp;
     }
 }

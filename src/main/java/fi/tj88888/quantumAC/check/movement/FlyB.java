@@ -16,15 +16,11 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * FlyB - Specialized in detecting hovering, gliding, and "boat fly" hacks
- *
- * This check focuses on:
- * 1. Detecting players maintaining a fixed height (hovering)
- * 2. Detecting unusual gliding behavior (without elytra)
- * 3. Detecting "boat fly" and other creative fly methods
- * 4. Verifying client-reported ground state to catch spoofed packets
+ * Fixed to prevent NullPointerException in isRecentlyInVehicle method
  */
 public class FlyB extends Check {
 
@@ -79,8 +75,8 @@ public class FlyB extends Check {
     private boolean wasInVehicle = false;
     private double lastHorizontalSpeed = 0.0;
 
-    // Advanced movement tracking
-    private final Deque<MovementSample> movementHistory = new LinkedList<>();
+    // Advanced movement tracking - FIXED: Changed to ConcurrentLinkedDeque for thread safety
+    private final Deque<MovementSample> movementHistory = new ConcurrentLinkedDeque<>();
     private final int MAX_HISTORY = 40;
 
     // Special case timers
@@ -363,7 +359,7 @@ public class FlyB extends Check {
 
         movementHistory.addLast(sample);
 
-        if (movementHistory.size() > MAX_HISTORY) {
+        while (movementHistory.size() > MAX_HISTORY) {
             movementHistory.removeFirst();
         }
     }
@@ -532,15 +528,30 @@ public class FlyB extends Check {
 
     /**
      * Check if player was recently in a vehicle
+     * FIXED: Added null checks and concurrent safety
      */
     private boolean isRecentlyInVehicle() {
-        // Check the movement history
-        long currentTime = System.currentTimeMillis();
+        // Check if movement history is empty
+        if (movementHistory.isEmpty()) {
+            return false;
+        }
 
-        for (MovementSample sample : movementHistory) {
-            if (currentTime - sample.timestamp < 3000 && sample.inVehicle) {
-                return true;
+        try {
+            // Check the movement history safely
+            long currentTime = System.currentTimeMillis();
+
+            // Make a copy to avoid concurrent modification
+            List<MovementSample> safeCopy = new ArrayList<>(movementHistory);
+
+            for (MovementSample sample : safeCopy) {
+                if (sample != null && currentTime - sample.timestamp < 3000 && sample.inVehicle) {
+                    return true;
+                }
             }
+        } catch (Exception e) {
+            // Log the error but don't crash
+            plugin.getLogger().warning("Error in isRecentlyInVehicle: " + e.getMessage());
+            return false;
         }
 
         return false;

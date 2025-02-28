@@ -2,6 +2,7 @@ package fi.tj88888.quantumAC.util;
 
 /**
  * Class to store and manage player movement data
+ * Enhanced with better rotation tracking
  */
 public class MovementData {
 
@@ -23,12 +24,20 @@ public class MovementData {
     private double acceleration;
 
     // Rotation data
-    private float yaw;
-    private float pitch;
-    private float lastYaw;
-    private float lastPitch;
-    private float deltaYaw;
-    private float deltaPitch;
+    private float yaw;             // Current yaw (0-360)
+    private float pitch;           // Current pitch (-90 to 90)
+    private float lastYaw;         // Last yaw
+    private float lastPitch;       // Last pitch
+    private float deltaYaw;        // Change in yaw
+    private float deltaPitch;      // Change in pitch
+    private float rawDeltaYaw;     // Raw change before normalization
+    private float[] recentYaws;    // Store recent yaws to detect patterns
+    private float[] recentPitches; // Store recent pitches
+    private int rotationIndex;     // Index for circular buffer
+
+    // Sensitivity tracking
+    private float minYawDelta = Float.MAX_VALUE;  // Minimum non-zero yaw delta
+    private float maxYawDelta = 0;                // Maximum yaw delta
 
     // Ground state
     private boolean onGround;
@@ -68,6 +77,13 @@ public class MovementData {
         this.lastPitch = 0;
         this.deltaYaw = 0;
         this.deltaPitch = 0;
+        this.rawDeltaYaw = 0;
+
+        // Initialize rotation history arrays (store last 20 rotations)
+        this.recentYaws = new float[20];
+        this.recentPitches = new float[20];
+        this.rotationIndex = 0;
+
         this.onGround = true;
         this.wasOnGround = true;
         this.groundTime = 0;
@@ -113,24 +129,59 @@ public class MovementData {
     }
 
     /**
-     * Updates rotation data
+     * Updates rotation data with improved detection for small changes
      *
-     * @param yaw Yaw angle
-     * @param pitch Pitch angle
+     * @param yaw Yaw angle (0-360)
+     * @param pitch Pitch angle (-90 to 90)
      */
     public void updateRotation(float yaw, float pitch) {
+        // Normalize yaw to 0-360 range
+        while (yaw < 0) yaw += 360;
+        while (yaw >= 360) yaw -= 360;
+
+        // Clamp pitch to -90 to 90 range
+        pitch = Math.max(-90, Math.min(90, pitch));
+
+        // Save previous values
         this.lastYaw = this.yaw;
         this.lastPitch = this.pitch;
 
+        // Store new values
         this.yaw = yaw;
         this.pitch = pitch;
 
+        // Add to history arrays
+        recentYaws[rotationIndex] = yaw;
+        recentPitches[rotationIndex] = pitch;
+        rotationIndex = (rotationIndex + 1) % recentYaws.length;
+
+        // Calculate raw delta for analysis
+        this.rawDeltaYaw = this.yaw - this.lastYaw;
+
         // Calculate deltas, handling wrap-around for yaw
-        this.deltaYaw = Math.abs(this.yaw - this.lastYaw);
-        if (this.deltaYaw > 180) {
-            this.deltaYaw = 360 - this.deltaYaw;
+        // For yaw, we need to handle the wrap-around at 0/360
+        if (this.lastYaw != 0) { // Skip first calculation
+            float delta = Math.abs(this.yaw - this.lastYaw);
+
+            // Handle wrap-around (e.g. from 359 to 1 degrees)
+            if (delta > 180) {
+                delta = 360 - delta;
+            }
+
+            this.deltaYaw = delta;
+
+            // Update min/max for sensitivity tracking
+            if (delta > 0.001f && delta < minYawDelta) {
+                minYawDelta = delta;
+            }
+            if (delta > maxYawDelta) {
+                maxYawDelta = delta;
+            }
+        } else {
+            this.deltaYaw = 0;
         }
 
+        // For pitch, it's simpler
         this.deltaPitch = Math.abs(this.pitch - this.lastPitch);
     }
 
@@ -234,6 +285,14 @@ public class MovementData {
         return lastDeltaZ;
     }
 
+    public double getLastDeltaXZ() {
+        return Math.sqrt(lastDeltaX * lastDeltaX + lastDeltaZ * lastDeltaZ);
+    }
+
+    public double getDeltaXZ() {
+        return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+    }
+
     public double getAcceleration() {
         return acceleration;
     }
@@ -256,6 +315,56 @@ public class MovementData {
 
     public float getDeltaYaw() {
         return deltaYaw;
+    }
+
+    /**
+     * Gets raw (unnormalized) yaw delta, useful for detecting direction changes
+     * @return Raw yaw change including sign
+     */
+    public float getRawDeltaYaw() {
+        return rawDeltaYaw;
+    }
+
+    /**
+     * Gets minimum detected non-zero yaw delta (for sensitivity detection)
+     * @return Minimum meaningful yaw change
+     */
+    public float getMinYawDelta() {
+        return minYawDelta == Float.MAX_VALUE ? 0 : minYawDelta;
+    }
+
+    /**
+     * Gets maximum detected yaw delta
+     * @return Maximum yaw change
+     */
+    public float getMaxYawDelta() {
+        return maxYawDelta;
+    }
+
+    /**
+     * Get a historical yaw value
+     * @param stepsBack How many rotations back (0 = current)
+     * @return The historical yaw value
+     */
+    public float getHistoricalYaw(int stepsBack) {
+        if (stepsBack >= recentYaws.length) {
+            stepsBack = recentYaws.length - 1;
+        }
+        int index = (rotationIndex - 1 - stepsBack + recentYaws.length) % recentYaws.length;
+        return recentYaws[index];
+    }
+
+    /**
+     * Get a historical pitch value
+     * @param stepsBack How many rotations back (0 = current)
+     * @return The historical pitch value
+     */
+    public float getHistoricalPitch(int stepsBack) {
+        if (stepsBack >= recentPitches.length) {
+            stepsBack = recentPitches.length - 1;
+        }
+        int index = (rotationIndex - 1 - stepsBack + recentPitches.length) % recentPitches.length;
+        return recentPitches[index];
     }
 
     public float getDeltaPitch() {
@@ -344,5 +453,47 @@ public class MovementData {
      */
     public long getTimeOnGround() {
         return !onGround ? 0 : System.currentTimeMillis() - groundTime;
+    }
+
+    /**
+     * Detects if there's a pattern of consistent rotation deltas
+     * Useful for detecting aimbot/aim assist
+     *
+     * @return true if suspicious pattern detected
+     */
+    public boolean hasConsistentRotationPattern() {
+        // Need at least 5 rotation samples
+        if (rotationIndex < 5) return false;
+
+        int consistentCount = 0;
+        float lastDelta = -1;
+
+        // Check for consistent yaw changes
+        for (int i = 1; i < Math.min(10, rotationIndex); i++) {
+            int idx = (rotationIndex - i + recentYaws.length) % recentYaws.length;
+            int prevIdx = (rotationIndex - i - 1 + recentYaws.length) % recentYaws.length;
+
+            float currentYaw = recentYaws[idx];
+            float prevYaw = recentYaws[prevIdx];
+
+            float delta = Math.abs(currentYaw - prevYaw);
+            if (delta > 180) delta = 360 - delta;
+
+            // If this is our first measurement, store it
+            if (lastDelta < 0) {
+                lastDelta = delta;
+                continue;
+            }
+
+            // Check if this delta is very similar to the last one
+            if (Math.abs(delta - lastDelta) < 0.01) {
+                consistentCount++;
+            }
+
+            lastDelta = delta;
+        }
+
+        // If we have multiple consistent deltas, flag it
+        return consistentCount >= 3;
     }
 }

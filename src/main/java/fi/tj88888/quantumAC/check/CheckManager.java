@@ -1,8 +1,11 @@
 package fi.tj88888.quantumAC.check;
 
 import fi.tj88888.quantumAC.QuantumAC;
+import fi.tj88888.quantumAC.check.combat.*;
+import fi.tj88888.quantumAC.check.combat.killaura.*;
 import fi.tj88888.quantumAC.check.movement.*;
-import fi.tj88888.quantumAC.check.packet.TimerA;
+import fi.tj88888.quantumAC.check.movement.rotation.RotationA;
+import fi.tj88888.quantumAC.check.packet.*;
 import fi.tj88888.quantumAC.data.PlayerData;
 import com.comphenix.protocol.events.PacketEvent;
 import org.bukkit.entity.Player;
@@ -27,12 +30,25 @@ public class CheckManager {
     private void registerChecks() {
         // Speed Checks
         registerCheck(SpeedA.class);
+        //registerCheck(SpeedB.class);
+
+        // Rotation Checks
+        registerCheck(RotationA.class);
         // Fly Checks
         //registerCheck(FlyA.class);
         //registerCheck(FlyB.class);
         //registerCheck(FlyC.class);
         // Packet Checks
         //registerCheck(TimerA.class);
+        // Combat Checks
+        //registerCheck(KillAuraA.class);
+        //registerCheck(KillAuraB.class);
+        //registerCheck(KillAuraC.class);
+        //registerCheck(KillAuraD.class);
+        //registerCheck(KillAuraE.class);
+        //registerCheck(KillAuraP.class);
+
+
 
     }
 
@@ -77,7 +93,12 @@ public class CheckManager {
         Set<Check> checks = getChecks(uuid);
 
         PlayerData data = plugin.getPlayerDataManager().getPlayerData(uuid);
-        if (data == null || data.isExempt()) {
+        if (data == null) {
+            plugin.getLogger().severe("PlayerData is null for player: " + player.getName());
+            return;
+        }
+        if (data.getMovementData() == null) {
+            plugin.getLogger().severe("MovementData is null for player: " + player.getName());
             return;
         }
 
@@ -94,5 +115,16 @@ public class CheckManager {
 
     public void processQuit(Player player) {
         removeChecks(player.getUniqueId());
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends Check> T getCheck(UUID uuid, Class<T> checkClass) {
+        Set<Check> checks = getChecks(uuid); // Fetch all active checks for the player
+        for (Check check : checks) {
+            if (checkClass.isInstance(check)) {
+                return (T) check; // Return the specific check if it matches the specified type
+            }
+        }
+        return null; // Return null if no match is found
     }
 }

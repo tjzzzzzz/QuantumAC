@@ -1,20 +1,62 @@
 package fi.tj88888.quantumAC.util;
 
-import org.bukkit.ChatColor;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+import java.awt.Color;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Utility class for chat-related functions
+ * Enhanced utility class for chat-related functions
  */
 public class ChatUtil {
 
+    // Regex pattern for hex color codes like &#RRGGBB
+    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+
+    // Common prefixes used throughout the plugin
+    private static final String PREFIX = "&7[&bQuantum&7] ";
+    private static final String INFO_PREFIX = PREFIX + "&b";
+    private static final String SUCCESS_PREFIX = PREFIX + "&a";
+    private static final String WARNING_PREFIX = PREFIX + "&e";
+    private static final String ERROR_PREFIX = PREFIX + "&c";
+    private static final String DEBUG_PREFIX = PREFIX + "&d";
+
     /**
      * Colorizes a string using Bukkit's color codes
+     * Also supports hex colors with &#RRGGBB format
      *
      * @param message Message to colorize
      * @return Colorized message
      */
     public static String colorize(String message) {
-        return ChatColor.translateAlternateColorCodes('&', message);
+        if (message == null) return "";
+
+        // Process hex colors first (if supported by server version)
+        try {
+            Matcher matcher = HEX_PATTERN.matcher(message);
+            StringBuffer buffer = new StringBuffer();
+
+            while (matcher.find()) {
+                String hex = matcher.group(1);
+                matcher.appendReplacement(buffer, ChatColor.of("#" + hex).toString());
+            }
+
+            matcher.appendTail(buffer);
+            message = buffer.toString();
+        } catch (NoSuchMethodError e) {
+            // Hex colors not supported in this version, just continue with regular colors
+        }
+
+        // Process standard color codes
+        return org.bukkit.ChatColor.translateAlternateColorCodes('&', message);
     }
 
     /**
@@ -24,7 +66,101 @@ public class ChatUtil {
      * @return Plain message without color codes
      */
     public static String stripColor(String message) {
-        return ChatColor.stripColor(message);
+        return org.bukkit.ChatColor.stripColor(message);
+    }
+
+    /**
+     * Creates a gradient color text
+     *
+     * @param message Message to apply gradient to
+     * @param from Starting color
+     * @param to Ending color
+     * @return Message with color gradient
+     */
+    public static String gradient(String message, Color from, Color to) {
+        if (message == null || message.isEmpty()) return "";
+
+        StringBuilder builder = new StringBuilder();
+
+        // Remove existing color codes for clean processing
+        message = stripColor(message);
+
+        // Calculate the color step based on message length
+        int length = message.length();
+
+        for (int i = 0; i < length; i++) {
+            float ratio = (float) i / (float) (length - 1);
+
+            // Interpolate between the two colors
+            int red = (int) (from.getRed() * (1 - ratio) + to.getRed() * ratio);
+            int green = (int) (from.getGreen() * (1 - ratio) + to.getGreen() * ratio);
+            int blue = (int) (from.getBlue() * (1 - ratio) + to.getBlue() * ratio);
+
+            // Create hex color code
+            String hex = String.format("#%02x%02x%02x", red, green, blue);
+
+            try {
+                builder.append(ChatColor.of(hex)).append(message.charAt(i));
+            } catch (NoSuchMethodError e) {
+                // Fallback for older versions without hex support
+                builder.append(message.charAt(i));
+            }
+        }
+
+        return builder.toString();
+    }
+
+    /**
+     * Creates a progress bar visualization
+     *
+     * @param progress Value between 0.0 and 1.0
+     * @param length The length of the progress bar
+     * @param filledColor Color for filled portion
+     * @param emptyColor Color for empty portion
+     * @param barChar Character to use for the bar
+     * @return Formatted progress bar
+     */
+    public static String createProgressBar(double progress, int length, String filledColor, String emptyColor, char barChar) {
+        int filledBars = (int) Math.round(progress * length);
+        if (filledBars > length) filledBars = length;
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(colorize(filledColor));
+
+        for (int i = 0; i < filledBars; i++) {
+            builder.append(barChar);
+        }
+
+        builder.append(colorize(emptyColor));
+
+        for (int i = filledBars; i < length; i++) {
+            builder.append(barChar);
+        }
+
+        return builder.toString();
+    }
+
+    /**
+     * Creates a violation level bar
+     *
+     * @param vl Current violation level
+     * @param maxVL Maximum violation level for full bar
+     * @return Formatted violation level bar
+     */
+    public static String createViolationBar(double vl, double maxVL) {
+        double progress = Math.min(1.0, vl / maxVL);
+        String color;
+
+        if (progress < 0.33) {
+            color = "&a"; // Green for low violations
+        } else if (progress < 0.66) {
+            color = "&e"; // Yellow for medium violations
+        } else {
+            color = "&c"; // Red for high violations
+        }
+
+        return color + "VL: " + String.format("%.1f", vl) + " " +
+                createProgressBar(progress, 10, color, "&7", '|');
     }
 
     /**
@@ -64,6 +200,178 @@ public class ChatUtil {
         }
 
         return sb.toString() + message;
+    }
+
+    /**
+     * Creates a header with a centered title and separator lines
+     *
+     * @param title The title to display in the header
+     * @return Formatted header
+     */
+    public static String createHeader(String title) {
+        String line = "&7" + String.join("", Collections.nCopies(40, "-"));
+        return colorize(line + "\n" + centerMessage("&b" + title) + "\n" + line);
+    }
+
+    /**
+     * Creates a footer with a separator line
+     *
+     * @return Formatted footer
+     */
+    public static String createFooter() {
+        return colorize("&7" + String.join("", Collections.nCopies(40, "-")));
+    }
+
+    /**
+     * Sends a standard info message with prefix
+     *
+     * @param sender Command sender
+     * @param message Message to send
+     */
+    public static void sendInfo(CommandSender sender, String message) {
+        sender.sendMessage(colorize(INFO_PREFIX + message));
+    }
+
+    /**
+     * Sends a success message with prefix
+     *
+     * @param sender Command sender
+     * @param message Message to send
+     */
+    public static void sendSuccess(CommandSender sender, String message) {
+        sender.sendMessage(colorize(SUCCESS_PREFIX + message));
+    }
+
+    /**
+     * Sends a warning message with prefix
+     *
+     * @param sender Command sender
+     * @param message Message to send
+     */
+    public static void sendWarning(CommandSender sender, String message) {
+        sender.sendMessage(colorize(WARNING_PREFIX + message));
+    }
+
+    /**
+     * Sends an error message with prefix
+     *
+     * @param sender Command sender
+     * @param message Message to send
+     */
+    public static void sendError(CommandSender sender, String message) {
+        sender.sendMessage(colorize(ERROR_PREFIX + message));
+    }
+
+    /**
+     * Sends a debug message with prefix
+     *
+     * @param sender Command sender
+     * @param message Message to send
+     */
+    public static void sendDebug(CommandSender sender, String message) {
+        sender.sendMessage(colorize(DEBUG_PREFIX + message));
+    }
+
+    /**
+     * Creates a clickable message that executes a command when clicked
+     *
+     * @param sender Command sender (must be a Player)
+     * @param message Message text
+     * @param command Command to execute without the slash
+     * @param hoverText Text to show when hovering (can be null)
+     */
+    public static void sendClickableCommand(CommandSender sender, String message, String command, String hoverText) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(colorize(message));
+            return;
+        }
+
+        TextComponent component = new TextComponent(colorize(message));
+        component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + command));
+
+        if (hoverText != null) {
+            component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                    new ComponentBuilder(colorize(hoverText)).create()));
+        }
+
+        ((Player) sender).spigot().sendMessage(component);
+    }
+
+    /**
+     * Creates a clickable message that suggests a command when clicked
+     *
+     * @param sender Command sender (must be a Player)
+     * @param message Message text
+     * @param command Command to suggest without the slash
+     * @param hoverText Text to show when hovering (can be null)
+     */
+    public static void sendSuggestCommand(CommandSender sender, String message, String command, String hoverText) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(colorize(message));
+            return;
+        }
+
+        TextComponent component = new TextComponent(colorize(message));
+        component.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/" + command));
+
+        if (hoverText != null) {
+            component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                    new ComponentBuilder(colorize(hoverText)).create()));
+        }
+
+        ((Player) sender).spigot().sendMessage(component);
+    }
+
+    /**
+     * Creates a paginated list of items
+     *
+     * @param title Header title
+     * @param items List of items to display
+     * @param page Current page (1-based)
+     * @param itemsPerPage Number of items per page
+     * @return Formatted paginated list
+     */
+    public static List<String> createPaginatedList(String title, List<String> items, int page, int itemsPerPage) {
+        List<String> result = new ArrayList<>();
+
+        int totalPages = (int) Math.ceil((double) items.size() / itemsPerPage);
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+
+        result.add(createHeader(title + " &7(Page &b" + page + "&7/&b" + totalPages + "&7)"));
+
+        if (items.isEmpty()) {
+            result.add(colorize("&7No items to display."));
+        } else {
+            int start = (page - 1) * itemsPerPage;
+            int end = Math.min(start + itemsPerPage, items.size());
+
+            for (int i = start; i < end; i++) {
+                result.add(colorize(items.get(i)));
+            }
+        }
+
+        if (totalPages > 1) {
+            StringBuilder navigation = new StringBuilder("&7");
+            if (page > 1) {
+                navigation.append("&a◀ Previous ");
+            } else {
+                navigation.append("&8◀ Previous ");
+            }
+
+            navigation.append("&7|");
+
+            if (page < totalPages) {
+                navigation.append(" &aNext ▶");
+            } else {
+                navigation.append(" &8Next ▶");
+            }
+
+            result.add(centerMessage(navigation.toString()));
+        }
+
+        result.add(createFooter());
+        return result;
     }
 
     /**
