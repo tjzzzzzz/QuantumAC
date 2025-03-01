@@ -187,6 +187,43 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
                                 ? "&aRotation debug mode enabled. Detailed rotation checks will be displayed."
                                 : "&cRotation debug mode disabled."));
                         break;
+                    case "packets": // Subcommand for tracking packets
+                        Player packetPlayer = (Player) sender;
+                        PlayerData packetPlayerData = plugin.getPlayerDataManager().getPlayerData(packetPlayer.getUniqueId());
+
+                        if (packetPlayerData == null) {
+                            sender.sendMessage(ChatUtil.colorize("&cPlayer data not found. Debug mode cannot be toggled."));
+                            return true;
+                        }
+
+                        boolean isPacketDebugEnabled = packetPlayerData.togglePacketDebug();
+                        sender.sendMessage(ChatUtil.colorize(isPacketDebugEnabled
+                                ? "&aPacket debug mode enabled. You will see detailed packet information in real-time."
+                                : "&cPacket debug mode disabled. Packet tracking stopped."));
+                        break;
+
+
+                    case "packetstats": // shows statistics from collected packets
+                        if (!(sender instanceof Player)) {
+                            sender.sendMessage(ChatUtil.colorize("&cOnly players can use this command."));
+                            return true;
+                        }
+
+                        Player statsPlayer = (Player) sender;
+                        PlayerData statsPlayerData = plugin.getPlayerDataManager().getPlayerData(statsPlayer.getUniqueId());
+
+                        if (statsPlayerData == null) {
+                            sender.sendMessage(ChatUtil.colorize("&cPlayer data not found."));
+                            return true;
+                        }
+
+                        if (!statsPlayerData.isPacketDebugEnabled()) {
+                            sender.sendMessage(ChatUtil.colorize("&cPacket debug mode is not enabled. Use /quantumac debug packets to enable it."));
+                            return true;
+                        }
+
+                        statsPlayerData.displayPacketDebug(sender);
+                        break;
 
                     default:
                         sender.sendMessage(ChatUtil.colorize("&cUnknown debug option. Available: &7rotations."));
@@ -221,7 +258,9 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatUtil.colorize("&b/quantumac verbose &7- Toggle verbose alerts with detailed information"));
 
         if (sender.hasPermission("quantumac.debug")) {
-            sender.sendMessage(ChatUtil.colorize("&b/quantumac debug &7- Toggle debug mode for checks"));
+            sender.sendMessage(ChatUtil.colorize("&b/quantumac debug rotations &7- Toggle rotation debug mode"));
+            sender.sendMessage(ChatUtil.colorize("&b/quantumac debug packets &7- Toggle real-time packet display"));
+            sender.sendMessage(ChatUtil.colorize("&b/quantumac debug packetstats &7- Show packet statistics summary"));
         }
     }
 
@@ -295,6 +334,11 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
             if (args[0].equalsIgnoreCase("history") || args[0].equalsIgnoreCase("stats")) {
                 return Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
+                        .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            } else if (args[0].equalsIgnoreCase("debug")) {
+                // Add debug subcommands
+                return Arrays.asList("rotations", "packets", "packetstats").stream()
                         .filter(s -> s.toLowerCase().startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
             }

@@ -404,7 +404,7 @@ public class SpeedB extends Check {
         if (violations >= MAX_VIOLATIONS_BEFORE_ALERT) {
             String details = String.format("AirStrafe: Speed=%.2f, AirTime=%d, DirChanges=%d, Angle=%.2f, Accel=%.3f, Violations=%.1f",
                     speed, airTicks, directionChangesInAir, angle, acceleration, violations);
-            flag(player, "Air movement control", details);
+            flag(1, "Air movement control: " + details);
             violations = Math.max(0, violations - 1.5);
         }
     }

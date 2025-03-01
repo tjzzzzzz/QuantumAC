@@ -163,7 +163,7 @@ public class RotationA extends Check {
         if (violations >= FLAG_THRESHOLD) {
             String details = String.format("deltaYaw=%.2f, speed=%.3f→%.3f, drop=%.2f%%",
                     deltaYaw, previousSpeed, currentSpeed, speedDropRatio * 100);
-            flag(player, "Keep sprint - zero speed drop", details);
+            flag(1.0, "Keep sprint - zero speed drop " + details);
         }
     }
 }

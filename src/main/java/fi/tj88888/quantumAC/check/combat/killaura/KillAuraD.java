@@ -6,47 +6,31 @@ import com.comphenix.protocol.wrappers.EnumWrappers;
 import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.Check;
 import fi.tj88888.quantumAC.data.PlayerData;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
+import fi.tj88888.quantumAC.util.MovementData;
+import org.bukkit.entity.Player;
 
 /**
  * KillAuraD
- * Detects abnormal combat sequence timing
- * Analyzes the packet sequence for attacks (arm animation followed by attack)
+ * Detects players who maintain sprint speed when attacking
+ * Vanilla clients should slow down when hitting entities
  */
 public class KillAuraD extends Check {
 
-    // Further reduced minimum time to avoid false positives
-    // Aimbots can still be caught with extremely low values
-    private static final long MIN_TIME_BETWEEN_SWING_AND_ATTACK = 3; // Reduced from 5ms
+    // Detection thresholds
+    private double threshold = 0.0;
+    private int hits = 0;
+    private double lastDeltaXZ = 0.0;
+    private double deltaXZ = 0.0;
+    private boolean isSprinting = false;
+    // Removed the flag cooldown variables since we're not using them anymore
 
-    // Increased maximum time to accommodate network variations
-    private static final long MAX_TIME_BETWEEN_SWING_AND_ATTACK = 200; // Increased from 150ms
+    // Movement tracking
+    private double[] recentSpeeds = new double[5]; // Track recent speeds
+    private int speedIndex = 0;
+    private boolean speedArrayFilled = false;
 
-    // Adjusted consistency thresholds for extreme cases only
-    private static final double CV_THRESHOLD = 0.05; // Stricter (was 0.07)
-    private static final double RANGE_THRESHOLD = 2.0; // Stricter (was 3.0)
-
-    // Significantly increased violation requirements
-    private static final int MIN_NO_SWING_VIOLATIONS = 5; // Increased from 3
-    private static final int MIN_TIMING_VIOLATIONS = 4; // Increased from previous value
-    private static final int MIN_CONSISTENCY_VIOLATIONS = 5; // Increased from previous value
-
-    // Violation tracking
-    private int noSwingViolations = 0;
-    private int timingViolations = 0;
-    private int consistencyViolations = 0;
-    private int consecutiveNoSwingAttacks = 0;
-    private long lastViolationTime = 0;
-    private long lastFlagTime = 0;
-    private static final long VIOLATION_EXPIRY_TIME = 8000; // 8 seconds
-
-    private final Deque<Long> recentSwings = new ArrayDeque<>();
-    private final Deque<SequenceTimings> recentSequences = new ArrayDeque<>();
-
-    private long lastSwingPacket = 0;
-    private boolean awaitingAttack = false;
+    // Attack timing
+    private long lastAttackTime = 0;
 
     public KillAuraD(QuantumAC plugin, PlayerData playerData) {
         super(plugin, playerData, "KillAura", "D");
@@ -54,182 +38,192 @@ public class KillAuraD extends Check {
 
     @Override
     public void processPacket(PacketEvent event) {
-        // Expire violations after some time
-        checkViolationExpiry();
+        if (event == null || event.getPacketType() == null) return;
 
         long now = System.currentTimeMillis();
+        PacketType packetType = event.getPacketType();
 
-        // Track arm animation packets (swing)
-        if (event.getPacketType() == PacketType.Play.Client.ARM_ANIMATION) {
-            lastSwingPacket = now;
-            recentSwings.add(now);
+        try {
+            // Handle movement packets
+            if (isMovementPacket(packetType)) {
+                // Skip check for new players
+                long timeSinceJoin = now - playerData.getJoinTime();
+                if (timeSinceJoin < 3000) { // 3000ms = ~60 ticks
+                    threshold = 0;
+                    return;
+                }
 
-            // Reset consecutive no-swing counter
-            consecutiveNoSwingAttacks = 0;
+                // Get player and movement data
+                Player player = playerData.getPlayer();
+                if (player == null) return;
 
-            // Keep only the last 20 swings (increased from 10)
-            if (recentSwings.size() > 20) {
-                recentSwings.pollFirst();
+                // Update movement values
+                MovementData movementData = playerData.getMovementData();
+                MovementData previousMovementData = playerData.getPreviousMovementData();
+
+                // Calculate movement delta (speed)
+                lastDeltaXZ = deltaXZ;
+
+                // Calculate current XZ movement (horizontal speed)
+                double dx = movementData.getX() - previousMovementData.getX();
+                double dz = movementData.getZ() - previousMovementData.getZ();
+                deltaXZ = Math.sqrt(dx * dx + dz * dz);
+
+                // Update speed history
+                recentSpeeds[speedIndex] = deltaXZ;
+                speedIndex = (speedIndex + 1) % recentSpeeds.length;
+                if (speedIndex == 0) {
+                    speedArrayFilled = true;
+                }
+
+                // Check if player is sprinting (approximation based on speed)
+                double baseSpeed = getBaseSpeed(player);
+                isSprinting = deltaXZ > baseSpeed * 0.8;
+
+                long timeSinceLastAttack = now - playerData.getLastAttack();
+
+                // Only check if we've actually attacked recently (within 500ms)
+                if (hits > 0 && hits <= 3 && timeSinceLastAttack < 500) {
+                    if (isSprinting && movementData.isOnGround()) {  // Only check when on ground
+                        // Calculate expected slowdown based on speed
+                        double expectedSlowdown = baseSpeed * 0.6;
+                        double actualSlowdown = getSpeedDifference();
+
+                        // Check for very low slowdowns
+                        if (actualSlowdown < expectedSlowdown * 0.2 && isConsistentMovement() &&
+                                deltaXZ > baseSpeed * 0.8) {
+                            // Build threshold for low slowdown detection
+                            threshold += 0.75;
+
+                            // Only flag on high threshold - removed cooldown check
+                            if (threshold > 15) {
+                                // Calculate VL based on severity
+                                double vlIncrement = 1.0 + (threshold / 20.0);
+
+                                // Using the deprecated method that works correctly for VL tracking
+                                flag(vlIncrement, "very low slowdown=" + String.format("%.5f", actualSlowdown) +
+                                        ", expected=" + String.format("%.3f", expectedSlowdown) +
+                                        ", vl=" + String.format("%.1f", vlIncrement));
+
+                                // Reduce threshold a bit after flagging
+                                threshold = Math.max(0, threshold - 2);
+                            }
+                        }
+                        else {
+                            // Normal slowdown, decrease threshold
+                            threshold = Math.max(0, threshold - 2.0);
+                        }
+                    } else {
+                        // Not sprinting or not on ground, decrease threshold
+                        threshold = Math.max(0, threshold - 1.5);
+                    }
+                } else if (timeSinceLastAttack >= 500) {
+                    // Reset hits counter if it's been too long since the last attack
+                    hits = 0;
+
+                    // Rapidly decrease threshold between combat encounters
+                    if (timeSinceLastAttack > 2000) { // 2 seconds without combat
+                        threshold = Math.max(0, threshold - 3.0);
+                    } else {
+                        threshold = Math.max(0, threshold - 1.0);
+                    }
+                }
+
+                // Reset hit counter after several movement packets
+                if (hits > 8) {
+                    hits = 0;
+                    threshold = Math.max(0, threshold - 2.0);
+                }
+
+                // Always gradually decrease threshold over time
+                if (threshold > 0) {
+                    threshold = Math.max(0, threshold - 0.1);
+                }
+
+                // Save last attack time for timing calculations
+                if (playerData.getLastAttack() > lastAttackTime) {
+                    lastAttackTime = playerData.getLastAttack();
+                }
             }
 
-            awaitingAttack = true;
-        }
+            // Handle attack packets
+            else if (packetType == PacketType.Play.Client.USE_ENTITY &&
+                    event.getPacket().getEnumEntityUseActions().size() > 0) {
 
-        // Check use entity packets (attack)
-        else if (event.getPacketType() == PacketType.Play.Client.USE_ENTITY) {
-            // Ensure it's an attack action and has data
-            if (event.getPacket().getEnumEntityUseActions().size() > 0 &&
-                    event.getPacket().getEnumEntityUseActions().read(0).getAction() == EnumWrappers.EntityUseAction.ATTACK) {
+                EnumWrappers.EntityUseAction action =
+                        event.getPacket().getEnumEntityUseActions().read(0).getAction();
 
-                // If we saw a recent swing packet
-                if (awaitingAttack && lastSwingPacket > 0) {
-                    long timeBetween = now - lastSwingPacket;
+                // Reset hit counter on new attack
+                if (action == EnumWrappers.EntityUseAction.ATTACK) {
+                    hits = 0;
 
-                    // Record this sequence timing
-                    SequenceTimings sequence = new SequenceTimings(lastSwingPacket, now, timeBetween);
-                    recentSequences.add(sequence);
+                    // Get the entity ID and start monitoring
+                    if (event.getPacket().getIntegers().size() > 0) {
+                        int entityId = event.getPacket().getIntegers().read(0);
+                        playerData.setLastAttackedEntity(entityId);
 
-                    // Keep only the last 20 sequences (increased from 15)
-                    if (recentSequences.size() > 20) {
-                        recentSequences.pollFirst();
+                        // Start monitoring for all attacks
+                        hits = 1;
                     }
-
-                    // Only check suspicious timing with a ping-adjusted threshold
-                    if (playerData.getAveragePing() < 100) {  // Skip for high ping players
-                        checkTimingAnomalies(sequence, now);
-                    }
-
-                    // Check for consistently abnormal timings - with more data and only for low ping
-                    if (recentSequences.size() >= 15 && playerData.getAveragePing() < 150) { // Increased threshold, only for low ping
-                        checkConsistentPatterns(now);
-                    }
-
-                    awaitingAttack = false;
-                }
-                // Attack without a swing packet, but with more safeguards
-                else if (!awaitingAttack || lastSwingPacket == 0 || (now - lastSwingPacket) > MAX_TIME_BETWEEN_SWING_AND_ATTACK) {
-                    handleNoSwingAttack(now);
                 }
             }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error in KillAuraD check: " + e.getMessage());
         }
     }
 
     /**
-     * Handles attacks without swing packets
+     * Helper method to determine if a packet is a movement packet
      */
-    private void handleNoSwingAttack(long now) {
-        // Skip for high ping players
-        if (playerData.getAveragePing() > 150) {
-            return;
-        }
-
-        // Increment counter for tracking consecutive issues
-        consecutiveNoSwingAttacks++;
-
-        // Only start counting violations after multiple consecutive occurrences
-        if (consecutiveNoSwingAttacks >= 3) {
-            noSwingViolations++;
-            lastViolationTime = now;
-
-            // Only flag after many violations and with a long cooldown
-            if (noSwingViolations >= MIN_NO_SWING_VIOLATIONS && now - lastFlagTime > 20000) {
-                flag(0.8, "Multiple attacks without swing packets (" + consecutiveNoSwingAttacks + " consecutive)");
-                lastFlagTime = now;
-                noSwingViolations = 0;
-                consecutiveNoSwingAttacks = 0;
-            }
-        }
-    }
-
-    private void checkTimingAnomalies(SequenceTimings sequence, long now) {
-        // Only flag for extremely suspicious timing (near-zero time between swing and attack)
-        // This is physically impossible without cheating
-        if (sequence.timeBetween < MIN_TIME_BETWEEN_SWING_AND_ATTACK) {
-            timingViolations++;
-            lastViolationTime = now;
-
-            if (timingViolations >= MIN_TIMING_VIOLATIONS && now - lastFlagTime > 15000) {
-                flag(0.8, "Multiple attacks with impossible timing (" + sequence.timeBetween + "ms)");
-                lastFlagTime = now;
-                timingViolations = 0;
-            }
-        }
-    }
-
-    private void checkConsistentPatterns(long now) {
-        // Skip if we don't have enough data
-        if (recentSequences.size() < 15) {
-            return;
-        }
-
-        // Calculate statistics about swing-to-attack timing
-        double total = 0;
-        double min = Double.MAX_VALUE;
-        double max = 0;
-
-        for (SequenceTimings sequence : recentSequences) {
-            total += sequence.timeBetween;
-            min = Math.min(min, sequence.timeBetween);
-            max = Math.max(max, sequence.timeBetween);
-        }
-
-        double avg = total / recentSequences.size();
-        double range = max - min;
-
-        // Calculate standard deviation
-        double variance = 0;
-        for (SequenceTimings sequence : recentSequences) {
-            variance += Math.pow(sequence.timeBetween - avg, 2);
-        }
-        double stdDev = Math.sqrt(variance / recentSequences.size());
-
-        // Calculate coefficient of variation (lower = more consistent)
-        double cv = (avg > 0) ? stdDev / avg : 0;
-
-        // Check for extremely machine-like consistency (near-zero variation)
-        // Natural human input has variable timing; perfect consistency is a strong signal
-        if (cv < CV_THRESHOLD && range < RANGE_THRESHOLD && recentSequences.size() >= 15) {
-            consistencyViolations++;
-            lastViolationTime = now;
-
-            if (consistencyViolations >= MIN_CONSISTENCY_VIOLATIONS && now - lastFlagTime > 20000) {
-                flag(0.9, "Extremely consistent attack timing - machine-like precision (CV: " +
-                        String.format("%.4f", cv) + ", Range: " + String.format("%.1f", range) + "ms)");
-                lastFlagTime = now;
-                consistencyViolations = 0;
-            }
-        }
+    private boolean isMovementPacket(PacketType packetType) {
+        return packetType == PacketType.Play.Client.POSITION ||
+                packetType == PacketType.Play.Client.LOOK ||
+                packetType == PacketType.Play.Client.POSITION_LOOK ||
+                packetType == PacketType.Play.Client.FLYING;
     }
 
     /**
-     * Expires violation counters after some time without violations
+     * Calculate base walking speed for a player
      */
-    private void checkViolationExpiry() {
-        long now = System.currentTimeMillis();
+    private double getBaseSpeed(Player player) {
+        double baseSpeed = 0.13; // Default base speed
 
-        // If it's been too long since last violation, reduce counters
-        if (now - lastViolationTime > VIOLATION_EXPIRY_TIME) {
-            // Gradual decay instead of reset
-            noSwingViolations = Math.max(0, noSwingViolations - 1);
-            timingViolations = Math.max(0, timingViolations - 1);
-            consistencyViolations = Math.max(0, consistencyViolations - 1);
+        try {
+            // Get speed from player attribute
+            baseSpeed = player.getWalkSpeed() * 0.3; // Convert to blocks per tick
+        } catch (Exception ignored) {}
 
-            // Reset consecutive counter more aggressively
-            if (consecutiveNoSwingAttacks > 0 && now - lastViolationTime > VIOLATION_EXPIRY_TIME / 2) {
-                consecutiveNoSwingAttacks = 0;
-            }
-        }
+        return baseSpeed;
     }
 
-    private static class SequenceTimings {
-        final long swingTime;
-        final long attackTime;
-        final long timeBetween;
+    /**
+     * Checks if player movement has been consistent enough to analyze
+     */
+    private boolean isConsistentMovement() {
+        if (!speedArrayFilled) return false;
 
-        SequenceTimings(long swingTime, long attackTime, long timeBetween) {
-            this.swingTime = swingTime;
-            this.attackTime = attackTime;
-            this.timeBetween = timeBetween;
+        // Need at least some movement in the history
+        int movingPackets = 0;
+        for (double speed : recentSpeeds) {
+            if (speed > 0.05) movingPackets++;
         }
+
+        return movingPackets >= 3;
+    }
+
+    /**
+     * Calculate the speed difference after attack
+     */
+    private double getSpeedDifference() {
+        if (!speedArrayFilled) return 0;
+
+        // Find max speed before attack
+        double maxSpeed = 0;
+        for (double speed : recentSpeeds) {
+            if (speed > maxSpeed) maxSpeed = speed;
+        }
+
+        // Calculate difference between max speed and current
+        return maxSpeed - deltaXZ;
     }
 }

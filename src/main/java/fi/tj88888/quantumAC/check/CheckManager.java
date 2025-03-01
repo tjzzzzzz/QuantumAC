@@ -29,23 +29,25 @@ public class CheckManager {
 
     private void registerChecks() {
         // Speed Checks
-        registerCheck(SpeedA.class);
+        //registerCheck(SpeedA.class); // Finished apart from speed pot calculations
         //registerCheck(SpeedB.class);
 
         // Rotation Checks
-        registerCheck(RotationA.class);
+        //registerCheck(RotationA.class); // Finished
         // Fly Checks
         //registerCheck(FlyA.class);
         //registerCheck(FlyB.class);
         //registerCheck(FlyC.class);
         // Packet Checks
-        //registerCheck(TimerA.class);
+        //registerCheck(TimerA.class); // Look into false flags
         // Combat Checks
-        //registerCheck(KillAuraA.class);
-        //registerCheck(KillAuraB.class);
-        //registerCheck(KillAuraC.class);
-        //registerCheck(KillAuraD.class);
-        //registerCheck(KillAuraE.class);
+
+        // KillAura Checks
+        registerCheck(KillAuraA.class);
+        registerCheck(KillAuraB.class);
+        registerCheck(KillAuraC.class);
+        registerCheck(KillAuraD.class);
+        registerCheck(KillAuraE.class);
         //registerCheck(KillAuraP.class);
 
 

@@ -2,16 +2,28 @@ package fi.tj88888.quantumAC.data;
 
 import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.Check;
+import fi.tj88888.quantumAC.util.ChatUtil;
 import fi.tj88888.quantumAC.util.MovementData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PlayerData {
+
+    // Packet Debugging
+    private boolean packetDebugEnabled = false;
+    private final List<PacketDebugEntry> packetDebugHistory = new ArrayList<>();
+    private static final int MAX_PACKET_DEBUG_HISTORY = 200; // Store up to 200 packets
+    private final Map<String, Integer> packetTypeCounts = new HashMap<>();
+    private long firstPacketTimestamp = 0;
+    private long lastTickCalculation = 0;
+    private final Map<String, Double> averageTicksBetweenPackets = new HashMap<>();
 
     private final UUID uuid;
     private final String playerName;
@@ -49,7 +61,7 @@ public class PlayerData {
     private long lastCustomPayload;
     private long lastTransaction;
     private long lastKeepAlive;
-
+    private long lastEntityAction;
     // Count tracking for enhanced packets
     private int armAnimationCount;
     private int inventoryActionCount;
@@ -148,6 +160,46 @@ public class PlayerData {
     public void incrementTotalViolations() {
         this.totalViolations++;
         this.dataChanged = true;
+    }
+
+    /**
+     * Displays packet information in real-time to the player
+     * @param packetType The type of packet
+     * @param timestamp The time the packet was received
+     */
+    public void displayRealtimePacketInfo(String packetType, long timestamp) {
+        if (!packetDebugEnabled || getPlayer() == null) return;
+
+        Player player = getPlayer();
+
+        // Get previous packet of same type for tick calculation
+        double ticksSinceLast = -1;
+        for (int i = packetDebugHistory.size() - 1; i >= 0; i--) {
+            PacketDebugEntry entry = packetDebugHistory.get(i);
+            if (entry.packetType.equals(packetType) && entry.timestamp < timestamp) {
+                ticksSinceLast = (timestamp - entry.timestamp) / 50.0; // 50ms per tick
+                break;
+            }
+        }
+
+        // Format time
+        String timeStr = new SimpleDateFormat("HH:mm:ss.SSS").format(new Date(timestamp));
+
+        // Format message
+        StringBuilder message = new StringBuilder();
+        message.append("&8[&bPacket&8] &7");
+        message.append(timeStr);
+        message.append(" &b");
+        message.append(packetType);
+
+        if (ticksSinceLast >= 0) {
+            message.append(" &8(");
+            message.append(String.format("%.2f", ticksSinceLast));
+            message.append(" ticks after prev)");
+        }
+
+        // Send to player
+        player.sendMessage(ChatUtil.colorize(message.toString()));
     }
 
     // Violation level methods
@@ -757,5 +809,282 @@ public class PlayerData {
     public void markDataSaved() {
         this.dataChanged = false;
         this.lastDataSave = System.currentTimeMillis();
+    }
+
+    /**
+     * Toggles packet debugging
+     * @return New debug state
+     */
+    public boolean togglePacketDebug() {
+        this.packetDebugEnabled = !this.packetDebugEnabled;
+
+        // Clear history when enabling
+        if (this.packetDebugEnabled) {
+            this.packetDebugHistory.clear();
+            this.packetTypeCounts.clear();
+            this.averageTicksBetweenPackets.clear();
+            this.firstPacketTimestamp = System.currentTimeMillis();
+        }
+
+        return this.packetDebugEnabled;
+    }
+
+    /**
+     * Records the last entity action packet
+     * @param time timestamp when packet was received
+     */
+    public void setLastEntityAction(long time) {
+        // Add this field to the class definition:
+        // private long lastEntityAction;
+        this.lastEntityAction = time;
+    }
+
+    /**
+     * Gets the timestamp of the last entity action packet
+     * @return timestamp of last entity action
+     */
+    public long getLastEntityAction() {
+        return lastEntityAction;
+    }
+
+    /**
+     * Check if packet debugging is enabled
+     * @return whether packet debugging is enabled
+     */
+    public boolean isPacketDebugEnabled() {
+        return this.packetDebugEnabled;
+    }
+
+    /**
+     * Records a packet for debugging
+     * @param packetType The type of packet
+     * @param timestamp The time the packet was received
+     */
+    public void recordPacketDebug(String packetType, long timestamp) {
+        if (!packetDebugEnabled) return;
+
+        // Store the packet
+        packetDebugHistory.add(new PacketDebugEntry(packetType, timestamp));
+
+        // Update packet count
+        packetTypeCounts.put(packetType, packetTypeCounts.getOrDefault(packetType, 0) + 1);
+
+        // Set first packet timestamp if not set
+        if (firstPacketTimestamp == 0) {
+            firstPacketTimestamp = timestamp;
+        }
+
+        // Update average tick intervals
+        updateAverageTickIntervals(packetType, timestamp);
+
+        // Limit the history size
+        while (packetDebugHistory.size() > MAX_PACKET_DEBUG_HISTORY) {
+            packetDebugHistory.remove(0);
+        }
+    }
+
+    /**
+     * Updates the average tick intervals for a specific packet type
+     */
+    private void updateAverageTickIntervals(String packetType, long timestamp) {
+        // Find previous packet of same type
+        long prevTimestamp = 0;
+        for (int i = packetDebugHistory.size() - 1; i >= 0; i--) {
+            PacketDebugEntry entry = packetDebugHistory.get(i);
+            if (entry.packetType.equals(packetType) && entry.timestamp < timestamp) {
+                prevTimestamp = entry.timestamp;
+                break;
+            }
+        }
+
+        // If found, calculate tick interval (50ms per tick)
+        if (prevTimestamp > 0) {
+            double ticks = (timestamp - prevTimestamp) / 50.0;
+
+            // Update running average
+            Double currentAvg = averageTicksBetweenPackets.getOrDefault(packetType, 0.0);
+            int count = packetTypeCounts.getOrDefault(packetType, 1);
+
+            // Weighted average to give more importance to recent values
+            double newAvg = (currentAvg * (count - 1) + ticks) / count;
+            averageTicksBetweenPackets.put(packetType, newAvg);
+        }
+    }
+
+    /**
+     * Displays packet debug information to a sender
+     * @param sender CommandSender to display info to
+     */
+    public void displayPacketDebug(CommandSender sender) {
+        if (packetDebugHistory.isEmpty()) {
+            sender.sendMessage(ChatUtil.colorize("&cNo packet data available. Make sure packet debug is enabled."));
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        double secondsRunning = (now - firstPacketTimestamp) / 1000.0;
+
+        sender.sendMessage(ChatUtil.colorize("&7=== &bPacket Debug Information &7==="));
+        sender.sendMessage(ChatUtil.colorize("&bData collection time: &7" +
+                String.format("%.2f", secondsRunning) + " seconds"));
+        sender.sendMessage(ChatUtil.colorize("&bTotal packets tracked: &7" + packetDebugHistory.size()));
+
+        // Show packet type summary
+        sender.sendMessage(ChatUtil.colorize("&7--- &bPacket Type Summary &7---"));
+
+        // Sort packet types by count
+        List<Map.Entry<String, Integer>> sortedCounts = new ArrayList<>(packetTypeCounts.entrySet());
+        sortedCounts.sort(Map.Entry.<String, Integer>comparingByValue().reversed());
+
+        for (Map.Entry<String, Integer> entry : sortedCounts) {
+            String packetType = entry.getKey();
+            int count = entry.getValue();
+            double percentage = (count * 100.0) / packetDebugHistory.size();
+            double rate = count / secondsRunning;
+
+            // Only display significant packet types
+            if (percentage >= 1.0 || count >= 5) {
+                String avgTicks = "";
+                if (averageTicksBetweenPackets.containsKey(packetType)) {
+                    avgTicks = String.format(" | Avg %.2f ticks between", averageTicksBetweenPackets.get(packetType));
+                }
+
+                sender.sendMessage(ChatUtil.colorize(
+                        "&b" + packetType + ": &7" + count +
+                                " (" + String.format("%.1f", percentage) + "%, " +
+                                String.format("%.1f", rate) + "/sec" + avgTicks + ")"
+                ));
+            }
+        }
+
+        // Show detailed recent packet history
+        sender.sendMessage(ChatUtil.colorize("&7--- &bRecent Packet History &7---"));
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+
+        long lastTimestamp = 0;
+        int displayCount = Math.min(20, packetDebugHistory.size());
+        for (int i = 0; i < displayCount; i++) {
+            PacketDebugEntry entry = packetDebugHistory.get(packetDebugHistory.size() - 1 - i);
+
+            // Calculate time difference in ticks
+            String tickDiff = "N/A";
+            if (lastTimestamp > 0) {
+                double ticks = (lastTimestamp - entry.timestamp) / 50.0;
+                tickDiff = String.format("%.2f", ticks);
+            }
+            lastTimestamp = entry.timestamp;
+
+            // Format time
+            String time = timeFormat.format(new Date(entry.timestamp));
+
+            sender.sendMessage(ChatUtil.colorize(
+                    "&7" + time + " &b" + entry.packetType +
+                            " &7(Δt: " + tickDiff + " ticks)"
+            ));
+        }
+
+        // Show packet bursts (rapid sequences of packets)
+        analyzePacketBursts(sender);
+    }
+
+    /**
+     * Analyzes and displays information about packet bursts
+     */
+    private void analyzePacketBursts(CommandSender sender) {
+        if (packetDebugHistory.size() < 5) return;
+
+        sender.sendMessage(ChatUtil.colorize("&7--- &bPacket Burst Analysis &7---"));
+
+        // Find bursts (multiple packets in short time)
+        List<List<PacketDebugEntry>> bursts = new ArrayList<>();
+        List<PacketDebugEntry> currentBurst = null;
+
+        // Consider packets less than 10ms apart to be in a burst
+        long burstThreshold = 10;
+
+        // Analyze from oldest to newest for chronological display
+        for (int i = 0; i < packetDebugHistory.size(); i++) {
+            PacketDebugEntry entry = packetDebugHistory.get(i);
+
+            if (currentBurst == null) {
+                // Start a new burst
+                currentBurst = new ArrayList<>();
+                currentBurst.add(entry);
+            } else {
+                // Check if this packet is part of current burst
+                PacketDebugEntry lastEntry = currentBurst.get(currentBurst.size() - 1);
+                if (entry.timestamp - lastEntry.timestamp <= burstThreshold) {
+                    // Add to current burst
+                    currentBurst.add(entry);
+                } else {
+                    // Only save bursts with multiple packets
+                    if (currentBurst.size() > 1) {
+                        bursts.add(currentBurst);
+                    }
+                    // Start new burst
+                    currentBurst = new ArrayList<>();
+                    currentBurst.add(entry);
+                }
+            }
+        }
+
+        // Add final burst if valid
+        if (currentBurst != null && currentBurst.size() > 1) {
+            bursts.add(currentBurst);
+        }
+
+        // Display burst information
+        if (bursts.isEmpty()) {
+            sender.sendMessage(ChatUtil.colorize("&7No significant packet bursts detected."));
+        } else {
+            // Just show the most significant bursts
+            int burstLimit = Math.min(3, bursts.size());
+            sender.sendMessage(ChatUtil.colorize("&bFound " + bursts.size() +
+                    " packet bursts. Showing " + burstLimit + " most recent:"));
+
+            for (int i = 0; i < burstLimit; i++) {
+                List<PacketDebugEntry> burst = bursts.get(bursts.size() - 1 - i);
+
+                // Calculate burst duration
+                long start = burst.get(0).timestamp;
+                long end = burst.get(burst.size() - 1).timestamp;
+                double durationMs = end - start;
+
+                // Format time for display
+                String time = new SimpleDateFormat("HH:mm:ss.SSS").format(new Date(start));
+
+                // Summarize packet types in burst
+                Map<String, Integer> burstTypes = new HashMap<>();
+                for (PacketDebugEntry entry : burst) {
+                    burstTypes.put(entry.packetType, burstTypes.getOrDefault(entry.packetType, 0) + 1);
+                }
+
+                StringBuilder typesSummary = new StringBuilder();
+                for (Map.Entry<String, Integer> entry : burstTypes.entrySet()) {
+                    if (typesSummary.length() > 0) {
+                        typesSummary.append(", ");
+                    }
+                    typesSummary.append(entry.getKey()).append("(").append(entry.getValue()).append(")");
+                }
+
+                sender.sendMessage(ChatUtil.colorize(
+                        "&7" + time + " - " + burst.size() + " packets in " +
+                                String.format("%.1f", durationMs) + "ms: &b" + typesSummary
+                ));
+            }
+        }
+    }
+
+    /**
+     * Inner class for storing packet debug info
+     */
+    private static class PacketDebugEntry {
+        final String packetType;
+        final long timestamp;
+
+        PacketDebugEntry(String packetType, long timestamp) {
+            this.packetType = packetType;
+            this.timestamp = timestamp;
+        }
     }
 }

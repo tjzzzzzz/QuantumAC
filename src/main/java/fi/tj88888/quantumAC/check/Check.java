@@ -41,26 +41,16 @@ public abstract class Check {
     public abstract void processPacket(PacketEvent event);
 
     /**
-     * Flags a player for a violation with default increment of 1.0
-     *
-     * @param player The player who violated the check
-     * @param message A short message describing the violation
-     * @param details Technical details about the violation
-     */
-    protected void flag(Player player, String message, String details) {
-        flag(player, 1.0, message, details);
-    }
-
-    /**
      * Flags a player for a violation with a specified violation amount
      *
-     * @param player The player who violated the check
      * @param violationAmount The amount to increase the violation level by
-     * @param message A short message describing the violation
      * @param details Technical details about the violation
      */
-    protected void flag(Player player, double violationAmount, String message, String details) {
-        if (!enabled || player == null) return;
+    protected void flag(double violationAmount, String details) {
+        if (!enabled) return;
+
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) return;
 
         // Increment the player's violation level
         playerData.incrementViolationLevel(this.getClass(), violationAmount);
@@ -94,21 +84,6 @@ public abstract class Check {
         // Check if maximum violation level is reached for punishment
         if (vl >= maxVL && maxVL > 0 && !punishCommand.isEmpty()) {
             executePunishment(player);
-        }
-    }
-
-    /**
-     * Legacy method for backwards compatibility
-     *
-     * @param violationAmount The amount to increase the violation level by
-     * @param details Additional details about the violation
-     * @deprecated Use flag(Player, double, String, String) instead
-     */
-    @Deprecated
-    protected void flag(double violationAmount, String details) {
-        Player player = Bukkit.getPlayer(uuid);
-        if (player != null) {
-            flag(player, violationAmount, checkName + " violation", details);
         }
     }
 

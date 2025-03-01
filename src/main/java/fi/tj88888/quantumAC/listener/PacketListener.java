@@ -57,6 +57,80 @@ public class PacketListener {
         long now = System.currentTimeMillis();
         PacketType packetType = event.getPacketType();
 
+        if (playerData.isPacketDebugEnabled()) {
+            // Extract more specific information for certain packet types
+            String packetInfo = packetType.name();
+
+            // For flying packets, add ground state information
+            if (packetType == PacketType.Play.Client.FLYING ||
+                    packetType == PacketType.Play.Client.POSITION ||
+                    packetType == PacketType.Play.Client.POSITION_LOOK ||
+                    packetType == PacketType.Play.Client.LOOK) {
+                try {
+                    boolean onGround = event.getPacket().getBooleans().read(0);
+                    packetInfo += onGround ? "[GROUND]" : "[AIR]";
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // For use entity, add the action type
+            else if (packetType == PacketType.Play.Client.USE_ENTITY) {
+                try {
+                    if (event.getPacket().getEnumEntityUseActions().size() > 0) {
+                        EnumWrappers.EntityUseAction action = event.getPacket().getEnumEntityUseActions().read(0).getAction();
+                        packetInfo += "[" + action.name() + "]";
+                    }
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // For block dig, add the action type
+            else if (packetType == PacketType.Play.Client.BLOCK_DIG) {
+                try {
+                    EnumWrappers.PlayerDigType digType = event.getPacket().getPlayerDigTypes().read(0);
+                    packetInfo += "[" + digType.name() + "]";
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // For entity action, add the action type
+            else if (packetType == PacketType.Play.Client.ENTITY_ACTION) {
+                try {
+                    EnumWrappers.PlayerAction action = event.getPacket().getPlayerActions().read(0);
+                    packetInfo += "[" + action.name() + "]";
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // For window click, add slot information
+            else if (packetType == PacketType.Play.Client.WINDOW_CLICK) {
+                try {
+                    int slot = event.getPacket().getIntegers().read(1);
+                    packetInfo += "[SLOT:" + slot + "]";
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // For custom payload, add channel information
+            else if (packetType == PacketType.Play.Client.CUSTOM_PAYLOAD) {
+                try {
+                    String channel = event.getPacket().getStrings().read(0);
+                    packetInfo += "[" + channel + "]";
+                } catch (Exception e) {
+                    // Ignore exceptions from packet reading
+                }
+            }
+
+            // Store packet for history and display real-time information
+            playerData.recordPacketDebug(packetInfo, now);
+            playerData.displayRealtimePacketInfo(packetInfo, now);
+        }
+
         try {
             // Handle movement packets with optimized processing
             if (packetType == PacketType.Play.Client.POSITION ||
@@ -110,6 +184,27 @@ public class PacketListener {
                 playerData.setLastBlockDig(now);
             } else if (packetType == PacketType.Play.Client.BLOCK_PLACE) {
                 playerData.setLastBlockPlace(now);
+            }
+            // Additional packet tracking for entity action, transaction, keep alive etc.
+            else if (packetType == PacketType.Play.Client.ENTITY_ACTION) {
+                if (playerData.isPacketDebugEnabled()) {
+                    playerData.setLastEntityAction(now);
+                }
+            }
+            else if (packetType == PacketType.Play.Client.TRANSACTION) {
+                if (playerData.isPacketDebugEnabled()) {
+                    playerData.setLastTransaction(now);
+                }
+            }
+            else if (packetType == PacketType.Play.Client.KEEP_ALIVE) {
+                if (playerData.isPacketDebugEnabled()) {
+                    playerData.setLastKeepAlive(now);
+                }
+            }
+            else if (packetType == PacketType.Play.Client.CUSTOM_PAYLOAD) {
+                if (playerData.isPacketDebugEnabled()) {
+                    playerData.setLastCustomPayload(now);
+                }
             }
 
             // Update ping
@@ -300,6 +395,8 @@ public class PacketListener {
         blockStateCache.entrySet().removeIf(entry ->
                 now - entry.getValue().timestamp > BLOCK_CACHE_EXPIRY);
     }
+
+
 
     /**
      * Helper class to cache block state information
