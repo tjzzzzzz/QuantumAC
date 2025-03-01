@@ -7,29 +7,28 @@ import fi.tj88888.quantumAC.check.ViolationData;
  * Component to detect KillAura "keep sprint" cheats by checking if players maintain almost full sprint speed when attacking.
  * In vanilla Minecraft, players should slow down by approximately 60% when hitting entities while sprinting.
  * Many cheats implement a very tiny slowdown (0.0001-0.005) to bypass anti-cheat systems.
- * This component specifically targets these sophisticated cheats.
+ * This component specifically targets these sophisticated cheats using proven threshold-based detection.
  */
 public class SprintSpeedComponent {
 
     // Detection constants
-    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.55; // Expected slowdown percentage for legitimate players
-    private static final double MIN_CHEAT_SLOWDOWN = 0.0001; // Minimum slowdown cheats typically implement
-    private static final double MAX_CHEAT_SLOWDOWN = 0.05; // Maximum slowdown cheats typically implement
+    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.6; // Expected slowdown percentage for legitimate players (60%)
+    private static final double CHEAT_DETECTION_MULTIPLIER = 0.2; // Flag if slowdown is less than 20% of expected
     private static final int RESET_VIOLATION_TIME = 5000; // Time in ms to reset violations
-    private static final int BUFFER_THRESHOLD = 2; // Reduced threshold for buffering violations (was 3)
-    private static final int BUFFER_DECREMENT = 1; // Rate at which buffer decreases on legitimate moves
-
-    // State tracking
-    private int sprintAttackVL = 0;
-    private long lastFlag = 0;
-    private int consecutiveDetections = 0;
-    private int buffer = 0;
     
     // Movement tracking
     private final double[] recentSpeeds = new double[5]; // Tracks most recent speeds
-    private double lastAttackSpeed = 0.0;
-    private double lastBaseSpeed = 0.0;
+    private int speedIndex = 0;
+    private boolean speedArrayFilled = false;
+    private double lastDeltaXZ = 0.0;
+    
+    // State tracking
+    private double threshold = 0.0;
+    private int hits = 0;
     private long lastAttackTime = 0;
+    private long lastFlagTime = 0;
+    private double lastActualSlowdown = 0.0;
+    private double lastExpectedSlowdown = 0.0;
 
     /**
      * Checks for keep sprint violations when a player attacks
@@ -44,111 +43,192 @@ public class SprintSpeedComponent {
      */
     public ViolationData checkSprintSpeed(Player player, double currentSpeed, double baseSpeed, 
                                         boolean sprinting, long attackTime, double tolerance) {
-        // Only check if the player is sprinting
-        if (!sprinting) {
-            // Decrease buffer on legitimate moves
-            buffer = Math.max(0, buffer - BUFFER_DECREMENT);
-            return null;
-        }
-
-        // Update attack time tracking
-        boolean isNewAttack = (attackTime - lastAttackTime) > 100; // Ensure it's not the same attack
-        lastAttackTime = attackTime;
-
+        long now = System.currentTimeMillis();
+        
         // Store current speed in the circular buffer
-        System.arraycopy(recentSpeeds, 0, recentSpeeds, 1, recentSpeeds.length - 1);
-        recentSpeeds[0] = currentSpeed;
-
-        // Calculate expected speed reduction for legitimate players
-        double expectedSlowdown = baseSpeed * ATTACK_SLOWDOWN_THRESHOLD;
-        double expectedSpeed = baseSpeed - expectedSlowdown;
-        
-        // Calculate actual slowdown percentage (how much they actually slowed down)
-        double actualSlowdown = baseSpeed - currentSpeed;
-        double slowdownPercentage = actualSlowdown / baseSpeed;
-        
-        // Check for "keep sprint" cheats (very minimal slowdown)
-        boolean isKeepSprint = slowdownPercentage >= MIN_CHEAT_SLOWDOWN && 
-                              slowdownPercentage <= MAX_CHEAT_SLOWDOWN && 
-                              currentSpeed > (expectedSpeed + tolerance);
-
-        // Enhanced debug information (for logging purposes)
-        String debugInfo = String.format(
-            "currentSpeed=%.5f, expectedSpeed=%.5f, slowdownPercentage=%.5f, isKeepSprint=%s, buffer=%d",
-            currentSpeed, expectedSpeed, slowdownPercentage, isKeepSprint, buffer
-        );
-
-        // Violation detected if "keep sprint" pattern is identified
-        if (isKeepSprint && isNewAttack) {
-            buffer++;
-            
-            // Only flag if buffer threshold is reached
-            if (buffer >= BUFFER_THRESHOLD) {
-                // Reset buffer partially after flagging
-                buffer = Math.max(0, buffer - 1);
-                
-                // Check for violations reset timeout
-                if (shouldResetViolations()) {
-                    resetViolations();
-                    consecutiveDetections = 1;
-                } else {
-                    consecutiveDetections++;
-                }
-                
-                // Update tracking variables
-                lastFlag = System.currentTimeMillis();
-                sprintAttackVL++;
-                lastAttackSpeed = currentSpeed;
-                lastBaseSpeed = baseSpeed;
-                
-                // Create violation data with detailed information
-                return new ViolationData(
-                    String.format(
-                        "keepSprint detected: slowdown=%.5f%%, speed=%.5f, expected=%.5f, base=%.5f, consecutive=%d",
-                        slowdownPercentage * 100, currentSpeed, expectedSpeed, baseSpeed, consecutiveDetections
-                    ),
-                    sprintAttackVL
-                );
-            }
-        } else if (slowdownPercentage > MAX_CHEAT_SLOWDOWN && slowdownPercentage < ATTACK_SLOWDOWN_THRESHOLD) {
-            // If slowdown is more than what cheats typically implement but less than legitimate,
-            // we decrease buffer but not as much as with legitimate moves
-            buffer = Math.max(0, buffer - 1);
-        } else if (slowdownPercentage >= ATTACK_SLOWDOWN_THRESHOLD) {
-            // Decrease buffer more for clearly legitimate moves
-            buffer = Math.max(0, buffer - BUFFER_DECREMENT);
+        recentSpeeds[speedIndex] = currentSpeed;
+        speedIndex = (speedIndex + 1) % recentSpeeds.length;
+        if (speedIndex == 0) {
+            speedArrayFilled = true;
         }
+        
+        // Check if this is a new attack
+        boolean isNewAttack = (attackTime > lastAttackTime);
+        if (isNewAttack) {
+            hits = 1;
+            lastAttackTime = attackTime;
+        } else {
+            // Only check for a limited number of hits after attack
+            if (hits > 0 && hits <= 3) {
+                // Only check if player is sprinting and on ground (assumed from caller)
+                if (sprinting && player.isOnGround()) {
+                    // Calculate expected and actual slowdown
+                    double expectedSlowdown = baseSpeed * ATTACK_SLOWDOWN_THRESHOLD;
+                    double actualSlowdown = getSpeedDifference();
+                    
+                    // Save for logging
+                    lastActualSlowdown = actualSlowdown;
+                    lastExpectedSlowdown = expectedSlowdown;
+                    
+                    // Check for very low slowdowns (less than 20% of expected)
+                    if (actualSlowdown < expectedSlowdown * CHEAT_DETECTION_MULTIPLIER && 
+                            isConsistentMovement() && 
+                            currentSpeed > baseSpeed * 0.8) {
+                        
+                        // Build threshold for low slowdown detection
+                        threshold += 0.75;
+                        
+                        // Only flag on high threshold
+                        if (threshold > 15) {
+                            // Calculate VL based on severity
+                            double vlIncrement = 1.0 + (threshold / 20.0);
+                            
+                            // Reset threshold partially after flagging
+                            threshold = Math.max(0, threshold - 2);
+                            lastFlagTime = now;
+                            
+                            // Create violation data with detailed information
+                            return new ViolationData(
+                                String.format(
+                                    "keepSprint detected: very low slowdown=%.5f, expected=%.3f, threshold=%.1f",
+                                    actualSlowdown, expectedSlowdown, threshold
+                                ),
+                                (int)vlIncrement
+                            );
+                        }
+                    } else {
+                        // Normal slowdown, decrease threshold
+                        threshold = Math.max(0, threshold - 2.0);
+                    }
+                } else {
+                    // Not sprinting or not on ground, decrease threshold
+                    threshold = Math.max(0, threshold - 1.5);
+                }
+            } else if ((now - lastAttackTime) >= 500) {
+                // Reset hits counter if it's been too long since the last attack
+                hits = 0;
+                
+                // Rapidly decrease threshold between combat encounters
+                if ((now - lastAttackTime) > 2000) { // 2 seconds without combat
+                    threshold = Math.max(0, threshold - 3.0);
+                } else {
+                    threshold = Math.max(0, threshold - 1.0);
+                }
+            }
+            
+            // Reset hit counter after several movement packets
+            if (hits > 8) {
+                hits = 0;
+                threshold = Math.max(0, threshold - 2.0);
+            }
+            
+            // Always gradually decrease threshold over time
+            if (threshold > 0) {
+                threshold = Math.max(0, threshold - 0.1);
+            }
+            
+            // Increment hit count
+            hits++;
+        }
+        
+        // Save current speed as last speed
+        lastDeltaXZ = currentSpeed;
         
         return null;
+    }
+    
+    /**
+     * Calculate the speed difference (slowdown) based on recent speeds
+     */
+    private double getSpeedDifference() {
+        if (!speedArrayFilled) return 0.0;
+        
+        double maxSpeed = 0;
+        double minSpeed = Double.MAX_VALUE;
+        
+        for (double speed : recentSpeeds) {
+            if (speed > maxSpeed) maxSpeed = speed;
+            if (speed < minSpeed) minSpeed = speed;
+        }
+        
+        return maxSpeed - minSpeed;
+    }
+    
+    /**
+     * Check if player's movement is consistent (common trait of cheats)
+     */
+    private boolean isConsistentMovement() {
+        if (!speedArrayFilled) return false;
+        
+        double sum = 0;
+        double count = 0;
+        
+        for (double speed : recentSpeeds) {
+            if (speed > 0) {
+                sum += speed;
+                count++;
+            }
+        }
+        
+        if (count < 2) return false;
+        
+        double avg = sum / count;
+        double variance = 0;
+        
+        for (double speed : recentSpeeds) {
+            if (speed > 0) {
+                variance += Math.pow(speed - avg, 2);
+            }
+        }
+        
+        // Check variance - low variance means consistent movement (suspicious)
+        double stdDev = Math.sqrt(variance / count);
+        return (stdDev / avg) < 0.05; // Coefficient of variation < 5%
     }
     
     /**
      * Reset violation tracking
      */
     public void resetViolations() {
-        sprintAttackVL = 0;
-        consecutiveDetections = 0;
-        buffer = 0;
+        threshold = 0;
+        hits = 0;
     }
     
     /**
-     * Check if enough time has passed to reset violations
+     * Get the current threshold value for debugging
      */
-    private boolean shouldResetViolations() {
-        return (System.currentTimeMillis() - lastFlag) > RESET_VIOLATION_TIME;
+    public double getThreshold() {
+        return threshold;
+    }
+    
+    /**
+     * Get the last detected actual slowdown for debugging
+     */
+    public double getLastActualSlowdown() {
+        return lastActualSlowdown;
+    }
+    
+    /**
+     * Get the last expected slowdown for debugging
+     */
+    public double getLastExpectedSlowdown() {
+        return lastExpectedSlowdown;
     }
     
     /**
      * Reset the component's state
      */
     public void reset() {
-        sprintAttackVL = 0;
-        consecutiveDetections = 0;
-        buffer = 0;
-        lastFlag = 0;
-        lastAttackSpeed = 0.0;
-        lastBaseSpeed = 0.0;
+        threshold = 0;
+        hits = 0;
         lastAttackTime = 0;
+        lastFlagTime = 0;
+        lastActualSlowdown = 0.0;
+        lastExpectedSlowdown = 0.0;
+        lastDeltaXZ = 0.0;
+        speedIndex = 0;
+        speedArrayFilled = false;
+        
         for (int i = 0; i < recentSpeeds.length; i++) {
             recentSpeeds[i] = 0.0;
         }

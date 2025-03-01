@@ -13,7 +13,7 @@ import org.bukkit.potion.PotionEffectType;
 /**
  * KillAuraD - Detects players using "keep sprint" cheats that maintain almost full sprint speed when attacking.
  * In vanilla Minecraft, players should slow down by approximately 60% when hitting entities.
- * This check specifically targets cheats that implement minimal slowdown (0.0001-0.05) to bypass anti-cheat systems.
+ * This check uses proven threshold-based detection to identify cheats that implement very minimal slowdown (0.0001-0.05).
  */
 public class KillAuraD extends KillAuraCheck {
 
@@ -64,6 +64,12 @@ public class KillAuraD extends KillAuraCheck {
      * Process movement packets to track player speed
      */
     private void processMovement(Player player) {
+        // Skip for new players
+        long timeSinceJoin = System.currentTimeMillis() - playerData.getJoinTime();
+        if (timeSinceJoin < 3000) { // 3 seconds after joining
+            return;
+        }
+        
         Location currentLocation = player.getLocation();
         
         // Skip if location hasn't been initialized
@@ -77,6 +83,31 @@ public class KillAuraD extends KillAuraCheck {
         double dz = currentLocation.getZ() - lastLocation.getZ();
         double currentSpeed = Math.sqrt(dx * dx + dz * dz);
         
+        // Calculate base speed based on player attributes
+        double baseSpeed = calculateBaseSpeed(player);
+        
+        // Get player status
+        boolean sprinting = player.isSprinting();
+        
+        // Calculate tolerance based on ping and potion effects
+        double tolerance = calculateTolerance(player);
+        
+        // Check for keep sprint violations using the component
+        ViolationData violationData = sprintSpeedComponent.checkSprintSpeed(
+            player, currentSpeed, baseSpeed, sprinting, lastAttackTime, tolerance
+        );
+        
+        // Flag if violation detected
+        if (violationData != null) {
+            String details = String.format("%s [ping=%d, threshold=%.1f]", 
+                violationData.getDetails(), 
+                playerData.getPing(),
+                sprintSpeedComponent.getThreshold());
+                
+            flag(player, details, violationData.getViolationLevel());
+            onViolation();
+        }
+        
         // Update last known values
         lastSpeed = currentSpeed;
         lastLocation = currentLocation;
@@ -87,43 +118,7 @@ public class KillAuraD extends KillAuraCheck {
      */
     private void processAttack(Player player) {
         // Update attack time
-        long currentTime = System.currentTimeMillis();
-        lastAttackTime = currentTime;
-        
-        // Skip if we don't have enough data
-        if (lastLocation == null) {
-            return;
-        }
-        
-        // Calculate base speed based on player attributes
-        double baseSpeed = calculateBaseSpeed(player);
-        
-        // Get player status
-        boolean sprinting = player.isSprinting();
-        
-        // Skip check if player isn't sprinting (no need to check for keep sprint)
-        if (!sprinting) {
-            return;
-        }
-        
-        // Calculate tolerance based on ping and potion effects
-        double tolerance = calculateTolerance(player);
-        
-        // Check for keep sprint violations using the component
-        ViolationData violationData = sprintSpeedComponent.checkSprintSpeed(
-            player, lastSpeed, baseSpeed, sprinting, lastAttackTime, tolerance
-        );
-        
-        // Flag if violation detected
-        if (violationData != null) {
-            String details = String.format("%s [ping=%d, sprinting=%s]", 
-                violationData.getDetails(), 
-                playerData.getPing(),
-                sprinting);
-                
-            flag(player, details, violationData.getViolationLevel());
-            onViolation();
-        }
+        lastAttackTime = System.currentTimeMillis();
     }
     
     /**
