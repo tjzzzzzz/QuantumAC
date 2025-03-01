@@ -122,84 +122,28 @@ public class ConnectionListener implements Listener {
 
     // Helper method to get TimerA check for a player
     private TimerA getTimerACheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof TimerA) {
-                return (TimerA) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new TimerA(plugin, plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), TimerA.class);
     }
 
-    // Helper method to get SpeedA check for a player
     private SpeedA getSpeedACheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof fi.tj88888.quantumAC.check.movement.SpeedA) {
-                return (fi.tj88888.quantumAC.check.movement.SpeedA) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new fi.tj88888.quantumAC.check.movement.SpeedA(plugin,
-                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), SpeedA.class);
     }
-
 
     private SpeedB getSpeedBCheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof fi.tj88888.quantumAC.check.movement.SpeedB) {
-                return (SpeedB) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new SpeedB(plugin,
-                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), SpeedB.class);
     }
-
 
     // Helper method to get FlyA check for a player
     private FlyA getFlyACheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof fi.tj88888.quantumAC.check.movement.fly.FlyA) {
-                return (fi.tj88888.quantumAC.check.movement.fly.FlyA) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new fi.tj88888.quantumAC.check.movement.fly.FlyA(plugin,
-                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), FlyA.class);
     }
 
     private FlyB getFlyBCheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof FlyB) {
-                return (FlyB) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new FlyB(plugin,
-                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), FlyB.class);
     }
 
     private FlyC getFlyCCheck(Player player) {
-        Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
-        for (Check check : checks) {
-            if (check instanceof FlyC) {
-                return (FlyC) check;
-            }
-        }
-
-        // If check not found, create new instance (shouldn't happen normally)
-        return new FlyC(plugin,
-                plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
+        return plugin.getCheckManager().getCheck(player.getUniqueId(), FlyC.class);
     }
 
 

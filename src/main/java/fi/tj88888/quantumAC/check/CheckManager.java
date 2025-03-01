@@ -38,8 +38,8 @@ public class CheckManager {
         
         // Fly Checks
         registerCheck(FlyA.class); // Refactored with components
-        //registerCheck(FlyB.class);
-        //registerCheck(FlyC.class);
+        registerCheck(FlyB.class); // Refactored with components
+        registerCheck(FlyC.class); // Refactored with components
         
         // Packet Checks
         //registerCheck(TimerA.class); // Look into false flags
@@ -50,11 +50,16 @@ public class CheckManager {
         registerCheck(KillAuraA.class); // Refactored with LateAttackComponent
         registerCheck(KillAuraB.class); // Refactored with EarlyAttackComponent
         registerCheck(KillAuraC.class); // Refactored with AttackRateComponent and AttackPatternComponent
-        registerCheck(KillAuraD.class);
-        registerCheck(KillAuraE.class);
+        registerCheck(KillAuraD.class); // Refactored with SprintSpeedComponent
+        registerCheck(KillAuraE.class); // Refactored with DeadPlayerActionComponent
         //registerCheck(KillAuraP.class);
     }
 
+    /**
+     * Registers a check to be initialized for players
+     *
+     * @param checkClass Check class to register
+     */
     public void registerCheck(Class<? extends Check> checkClass) {
         checkClasses.add(checkClass);
     }
