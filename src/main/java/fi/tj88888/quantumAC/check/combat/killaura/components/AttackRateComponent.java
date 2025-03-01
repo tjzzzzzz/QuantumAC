@@ -49,7 +49,10 @@ public class AttackRateComponent {
         }
         
         // Calculate attacks per second
-        long oldestTime = attackTimes.peek();
+        Long oldestTime = attackTimes.peek();
+        if (oldestTime == null) {
+            return null;
+        }
         long timeSpan = attackTime - oldestTime;
         
         // Avoid division by zero

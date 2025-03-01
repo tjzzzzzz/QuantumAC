@@ -38,7 +38,12 @@ public class AttackPatternComponent {
 
         // Add the current attack time to our samples
         if (!attackTimes.isEmpty()) {
-            long lastAttack = attackTimes.peek();
+            Long lastAttack = attackTimes.peek();
+            if (lastAttack == null) {
+                attackTimes.add(attackTime);
+                return null;
+            }
+            
             long interval = attackTime - lastAttack;
             
             // Only consider reasonable intervals (between 50ms and 2000ms)

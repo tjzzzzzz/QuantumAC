@@ -90,8 +90,12 @@ public class TimerA extends Check {
         packetTimestamps.add(currentTime);
 
         // Keep only recent packets for analysis
-        while (!packetTimestamps.isEmpty() &&
-                currentTime - packetTimestamps.peek() > SAMPLE_SIZE_MS) {
+        while (!packetTimestamps.isEmpty()) {
+            Long peek = packetTimestamps.peek();
+            // Break if peek returned null or if time condition not met
+            if (peek == null || currentTime - peek <= SAMPLE_SIZE_MS) {
+                break;
+            }
             packetTimestamps.poll();
         }
 
@@ -223,7 +227,19 @@ public class TimerA extends Check {
      */
     private double calculatePacketsPerSecond() {
         long currentTime = System.currentTimeMillis();
-        long oldestPacketTime = packetTimestamps.peek();
+        
+        // Add null check
+        if (packetTimestamps.isEmpty()) {
+            return 20.0; // Return default value if no data
+        }
+        
+        Long oldestPacketTime = packetTimestamps.peek();
+        
+        // Add null check
+        if (oldestPacketTime == null) {
+            return 20.0; // Return default value if peek returned null
+        }
+        
         double timeRange = (currentTime - oldestPacketTime) / 1000.0;
 
         // Avoid division by zero
