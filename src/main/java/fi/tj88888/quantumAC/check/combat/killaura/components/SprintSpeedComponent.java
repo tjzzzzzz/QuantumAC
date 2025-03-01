@@ -10,10 +10,10 @@ import fi.tj88888.quantumAC.check.ViolationData;
 public class SprintSpeedComponent {
 
     // Detection constants
-    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.6; // Expected slowdown percentage
+    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.55; // Expected slowdown percentage (reduced from 0.6)
     private static final double CONSISTENCY_THRESHOLD = 0.05; // Maximum allowed variance in speed patterns
     private static final int RESET_VIOLATION_TIME = 5000; // Time in ms to reset violations
-    private static final int BUFFER_THRESHOLD = 5; // Threshold for buffering violations
+    private static final int BUFFER_THRESHOLD = 3; // Threshold for buffering violations (reduced from 5)
     private static final int BUFFER_DECREMENT = 1; // Rate at which buffer decreases on legitimate moves
 
     // State tracking
@@ -69,6 +69,12 @@ public class SprintSpeedComponent {
         // Check for consistent speeds (minimal variation) which is suspicious
         boolean tooConsistent = speedConsistency < CONSISTENCY_THRESHOLD && currentSpeed > 0.1;
 
+        // Enhanced debug information (for logging purposes)
+        String debugInfo = String.format(
+            "currentSpeed=%.2f, expectedSpeed=%.2f, speedTooHigh=%s, consistency=%.3f, tooConsistent=%s, buffer=%d",
+            currentSpeed, expectedSpeed, speedTooHigh, speedConsistency, tooConsistent, buffer
+        );
+
         // Violation detected if speed is too high or too consistent after attack
         if ((speedTooHigh || tooConsistent) && isNewAttack) {
             buffer++;
@@ -95,8 +101,9 @@ public class SprintSpeedComponent {
                 // Create violation data with detailed information
                 return new ViolationData(
                     String.format(
-                        "speed=%.2f, expected=%.2f, base=%.2f, consistent=%.3f, consecutive=%d",
-                        currentSpeed, expectedSpeed, baseSpeed, speedConsistency, consecutiveDetections
+                        "speed=%.2f, expected=%.2f, base=%.2f, consistent=%.3f, consecutive=%d, %s",
+                        currentSpeed, expectedSpeed, baseSpeed, speedConsistency, consecutiveDetections,
+                        speedTooHigh ? "no-slowdown" : "consistent-movement"
                     ),
                     sprintAttackVL
                 );

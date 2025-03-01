@@ -111,7 +111,13 @@ public class KillAuraD extends KillAuraCheck {
         
         // Flag if violation detected
         if (violationData != null) {
-            flag(player, violationData.getDetails(), violationData.getViolationLevel());
+            String details = String.format("%s [sprint=%s, ping=%d]", 
+                violationData.getDetails(), 
+                sprinting, 
+                playerData.getPing());
+                
+            flag(player, details, violationData.getViolationLevel());
+            onViolation();
         }
     }
     
