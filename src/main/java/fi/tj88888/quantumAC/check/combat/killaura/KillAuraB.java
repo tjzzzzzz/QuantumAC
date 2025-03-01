@@ -1,94 +1,49 @@
 package fi.tj88888.quantumAC.check.combat.killaura;
 
-import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
 import fi.tj88888.quantumAC.QuantumAC;
-import fi.tj88888.quantumAC.check.Check;
+import fi.tj88888.quantumAC.check.combat.killaura.components.EarlyAttackComponent;
 import fi.tj88888.quantumAC.data.PlayerData;
 
-
 /**
- * KillAuraB
- * Detects if a player sends swing packets too late after attacks
- * Legit clients send arm swing before or very shortly after attacks
+ * KillAuraB - Detects if a player attacks before swinging their arm
+ * This can indicate modified client attack sequence or packet manipulation
  */
-public class KillAuraB extends Check {
-    private static final long MAX_TIME_BETWEEN_ATTACK_SWING = 100; // ms
-    private static final long RESET_VIOLATION_TIME = 10000; // ms
+public class KillAuraB extends KillAuraCheck {
 
-    private long lastAttack = 0;
-    private int lateSwingVL = 0;
-    private long lastFlag = 0;
-    private int consecutiveDetections = 0;
+    // Component for early attack detection
+    private final EarlyAttackComponent earlyAttackComponent;
 
     public KillAuraB(QuantumAC plugin, PlayerData playerData) {
-        super(plugin, playerData, "KillAura", "B");
+        super(plugin, playerData, "B");
+        this.earlyAttackComponent = new EarlyAttackComponent();
     }
 
     @Override
     public void processPacket(PacketEvent event) {
         if (event == null || event.getPacketType() == null) return;
 
+        // Process the packet using the base handler
+        boolean processed = processKillAuraPacket(event);
+        if (!processed) return;
+
+        // Get the most recent arm animation and attack times
         long now = System.currentTimeMillis();
-        PacketType packetType = event.getPacketType();
-
-        try {
-            if (packetType == PacketType.Play.Client.USE_ENTITY &&
-                    event.getPacket().getEnumEntityUseActions().size() > 0) {
-
-                EnumWrappers.EntityUseAction action =
-                        event.getPacket().getEnumEntityUseActions().read(0).getAction();
-
-                if (action == EnumWrappers.EntityUseAction.ATTACK) {
-                    if (event.getPacket().getIntegers().size() > 0) {
-                        playerData.setLastAttackedEntity(event.getPacket().getIntegers().read(0));
-                    }
-
-                    lastAttack = now;
-                    playerData.setLastAttack(now);
-                }
+        long attackTime = playerData.getLastAttack();
+        long armAnimTime = playerData.getLastArmAnimation();
+        
+        // Skip if we haven't seen both events yet
+        if (attackTime == 0 || armAnimTime == 0) return;
+        
+        // Only check if this was an attack packet
+        if (attackTime == now) {
+            // Check for early attack using the component
+            String violation = earlyAttackComponent.checkEarlyAttack(
+                attackTime, armAnimTime, playerData.getAveragePing());
+                
+            if (violation != null) {
+                flag(1.0, violation);
             }
-            else if (packetType == PacketType.Play.Client.ARM_ANIMATION) {
-                playerData.setLastArmAnimation(now);
-                checkLateSwing(now);
-            }
-
-            if (now - lastFlag > RESET_VIOLATION_TIME) {
-                lateSwingVL = Math.max(0, lateSwingVL - 1);
-                consecutiveDetections = 0;
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error in KillAuraB check: " + e.getMessage());
         }
     }
-
-    /**
-     * Checks if the swing packet was sent too late after attack
-     */
-    private void checkLateSwing(long swingTime) {
-        if (lastAttack == 0) return;
-
-        int ping = Math.max(playerData.getAveragePing(), 50);
-        long timeDiff = swingTime - lastAttack;
-        long maxAllowedTime = MAX_TIME_BETWEEN_ATTACK_SWING + ping;
-
-        if (timeDiff > maxAllowedTime) {
-            consecutiveDetections++;
-
-            if (consecutiveDetections >= 2) {
-                lateSwingVL++;
-
-                if (lateSwingVL >= 2) {
-                    flag(1.0, "Late swing: " + timeDiff + "ms after attack (max allowed: " + maxAllowedTime + "ms)");
-                    lastFlag = swingTime;
-                    lateSwingVL = 0;
-                    consecutiveDetections = 0;
-                }
-            }
-        } else {
-            consecutiveDetections = 0;
-        }
-    }
-
 }

@@ -4,6 +4,7 @@ import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.combat.*;
 import fi.tj88888.quantumAC.check.combat.killaura.*;
 import fi.tj88888.quantumAC.check.movement.*;
+import fi.tj88888.quantumAC.check.movement.fly.*;
 import fi.tj88888.quantumAC.check.movement.rotation.RotationA;
 import fi.tj88888.quantumAC.check.packet.*;
 import fi.tj88888.quantumAC.data.PlayerData;
@@ -34,24 +35,24 @@ public class CheckManager {
 
         // Rotation Checks
         //registerCheck(RotationA.class); // Finished
+        
         // Fly Checks
-        //registerCheck(FlyA.class);
+        registerCheck(FlyA.class); // Refactored with components
         //registerCheck(FlyB.class);
         //registerCheck(FlyC.class);
+        
         // Packet Checks
         //registerCheck(TimerA.class); // Look into false flags
+        
         // Combat Checks
 
         // KillAura Checks
-        registerCheck(KillAuraA.class);
-        registerCheck(KillAuraB.class);
-        registerCheck(KillAuraC.class);
+        registerCheck(KillAuraA.class); // Refactored with LateAttackComponent
+        registerCheck(KillAuraB.class); // Refactored with EarlyAttackComponent
+        registerCheck(KillAuraC.class); // Refactored with AttackRateComponent and AttackPatternComponent
         registerCheck(KillAuraD.class);
         registerCheck(KillAuraE.class);
         //registerCheck(KillAuraP.class);
-
-
-
     }
 
     public void registerCheck(Class<? extends Check> checkClass) {

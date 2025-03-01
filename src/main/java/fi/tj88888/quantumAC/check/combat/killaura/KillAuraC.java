@@ -1,102 +1,60 @@
 package fi.tj88888.quantumAC.check.combat.killaura;
 
-import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
 import fi.tj88888.quantumAC.QuantumAC;
-import fi.tj88888.quantumAC.check.Check;
+import fi.tj88888.quantumAC.check.combat.killaura.components.AttackRateComponent;
+import fi.tj88888.quantumAC.check.combat.killaura.components.AttackPatternComponent;
 import fi.tj88888.quantumAC.data.PlayerData;
 
 /**
- * KillAuraC
- * Detects players attacking while blocking (AutoBlock)
- * This behavior is impossible in vanilla Minecraft
+ * KillAuraC - Detects suspicious attack rates and patterns
+ * This can indicate auto-clickers, macros, or other combat assistance tools
  */
-public class KillAuraC extends Check {
+public class KillAuraC extends KillAuraCheck {
 
-    private boolean blocking = false;
-    private boolean releasingBlock = false;
-
-    private int autoBlockVL = 0;
-    private static final int VL_THRESHOLD = 3;
-
-    private long lastReset = 0;
-    private static final long RESET_COOLDOWN = 5000; // 5 seconds
+    // Components for attack analysis
+    private final AttackRateComponent attackRateComponent;
+    private final AttackPatternComponent attackPatternComponent;
 
     public KillAuraC(QuantumAC plugin, PlayerData playerData) {
-        super(plugin, playerData, "KillAura", "C");
+        super(plugin, playerData, "C");
+        this.attackRateComponent = new AttackRateComponent();
+        this.attackPatternComponent = new AttackPatternComponent();
     }
 
     @Override
     public void processPacket(PacketEvent event) {
         if (event == null || event.getPacketType() == null) return;
 
+        // Process the packet using the base handler
+        boolean processed = processKillAuraPacket(event);
+        if (!processed) return;
+
+        // Get the most recent attack time
         long now = System.currentTimeMillis();
-        PacketType packetType = event.getPacketType();
-
-        try {
-            if (isMovementPacket(packetType)) {
-                blocking = false;
-                releasingBlock = false;
+        long attackTime = playerData.getLastAttack();
+        
+        // Only check if this was an attack packet
+        if (attackTime == now) {
+            // Check for suspicious attack rate
+            String rateViolation = attackRateComponent.checkAttackRate(attackTime);
+            if (rateViolation != null) {
+                flag(1.0, rateViolation);
+                return; // Don't check pattern if rate already flagged
             }
-
-            else if (packetType == PacketType.Play.Client.BLOCK_PLACE) {
-                blocking = true;
+            
+            // Check for suspicious attack pattern
+            String patternViolation = attackPatternComponent.checkAttackPattern(attackTime);
+            if (patternViolation != null) {
+                flag(1.0, patternViolation);
             }
-
-            else if (packetType == PacketType.Play.Client.BLOCK_DIG) {
-                EnumWrappers.PlayerDigType digType = null;
-
-                try {
-                    if (event.getPacket().getPlayerDigTypes().size() > 0) {
-                        digType = event.getPacket().getPlayerDigTypes().read(0);
-                    }
-                } catch (Exception ignored) {}
-
-                if (digType == EnumWrappers.PlayerDigType.RELEASE_USE_ITEM) {
-                    releasingBlock = true;
-                }
-            }
-
-            else if (packetType == PacketType.Play.Client.USE_ENTITY &&
-                    event.getPacket().getEnumEntityUseActions().size() > 0) {
-
-                EnumWrappers.EntityUseAction action =
-                        event.getPacket().getEnumEntityUseActions().read(0).getAction();
-
-                if (action == EnumWrappers.EntityUseAction.ATTACK) {
-                    long timeSinceJoin = System.currentTimeMillis() - playerData.getJoinTime();
-                    if (timeSinceJoin < 3000) { // 3000ms = ~60 ticks
-                        return;
-                    }
-
-                    if (blocking || releasingBlock) {
-                        autoBlockVL++;
-
-                        if (autoBlockVL >= VL_THRESHOLD) {
-                            flag(1.0, "AutoBlocking detected (Block: " + blocking +
-                                    ", Release: " + releasingBlock + ")");
-                            autoBlockVL = 0;
-                        }
-                    }
-                }
-            }
-
-            // Reset violation level periodically
-            if (now - lastReset > RESET_COOLDOWN) {
-                autoBlockVL = Math.max(0, autoBlockVL - 1);
-                lastReset = now;
-            }
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error in KillAuraC check: " + e.getMessage());
         }
     }
-
-    private boolean isMovementPacket(PacketType packetType) {
-        return packetType == PacketType.Play.Client.POSITION ||
-                packetType == PacketType.Play.Client.LOOK ||
-                packetType == PacketType.Play.Client.POSITION_LOOK ||
-                packetType == PacketType.Play.Client.FLYING;
+    
+    @Override
+    public void reset() {
+        super.reset();
+        attackRateComponent.reset();
+        attackPatternComponent.reset();
     }
-}
+} 

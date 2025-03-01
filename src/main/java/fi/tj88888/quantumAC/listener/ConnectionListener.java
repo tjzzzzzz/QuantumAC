@@ -3,6 +3,7 @@ package fi.tj88888.quantumAC.listener;
 import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.Check;
 import fi.tj88888.quantumAC.check.movement.*;
+import fi.tj88888.quantumAC.check.movement.fly.FlyA;
 import fi.tj88888.quantumAC.check.packet.TimerA;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -163,13 +164,13 @@ public class ConnectionListener implements Listener {
     private FlyA getFlyACheck(Player player) {
         Set<Check> checks = plugin.getCheckManager().getChecks(player.getUniqueId());
         for (Check check : checks) {
-            if (check instanceof FlyA) {
-                return (FlyA) check;
+            if (check instanceof fi.tj88888.quantumAC.check.movement.fly.FlyA) {
+                return (fi.tj88888.quantumAC.check.movement.fly.FlyA) check;
             }
         }
 
         // If check not found, create new instance (shouldn't happen normally)
-        return new FlyA(plugin,
+        return new fi.tj88888.quantumAC.check.movement.fly.FlyA(plugin,
                 plugin.getPlayerDataManager().getPlayerData(player.getUniqueId()));
     }
 
