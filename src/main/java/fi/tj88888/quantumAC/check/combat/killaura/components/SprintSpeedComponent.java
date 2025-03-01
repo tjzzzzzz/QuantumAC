@@ -4,16 +4,19 @@ import org.bukkit.entity.Player;
 import fi.tj88888.quantumAC.check.ViolationData;
 
 /**
- * Component to detect KillAura cheats by checking if players maintain sprint speed when attacking.
- * In vanilla Minecraft, players should slow down when hitting entities while sprinting.
+ * Component to detect KillAura "keep sprint" cheats by checking if players maintain almost full sprint speed when attacking.
+ * In vanilla Minecraft, players should slow down by approximately 60% when hitting entities while sprinting.
+ * Many cheats implement a very tiny slowdown (0.0001-0.005) to bypass anti-cheat systems.
+ * This component specifically targets these sophisticated cheats.
  */
 public class SprintSpeedComponent {
 
     // Detection constants
-    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.55; // Expected slowdown percentage (reduced from 0.6)
-    private static final double CONSISTENCY_THRESHOLD = 0.05; // Maximum allowed variance in speed patterns
+    private static final double ATTACK_SLOWDOWN_THRESHOLD = 0.55; // Expected slowdown percentage for legitimate players
+    private static final double MIN_CHEAT_SLOWDOWN = 0.0001; // Minimum slowdown cheats typically implement
+    private static final double MAX_CHEAT_SLOWDOWN = 0.05; // Maximum slowdown cheats typically implement
     private static final int RESET_VIOLATION_TIME = 5000; // Time in ms to reset violations
-    private static final int BUFFER_THRESHOLD = 3; // Threshold for buffering violations (reduced from 5)
+    private static final int BUFFER_THRESHOLD = 2; // Reduced threshold for buffering violations (was 3)
     private static final int BUFFER_DECREMENT = 1; // Rate at which buffer decreases on legitimate moves
 
     // State tracking
@@ -29,7 +32,7 @@ public class SprintSpeedComponent {
     private long lastAttackTime = 0;
 
     /**
-     * Checks for sprint speed violations when a player attacks
+     * Checks for keep sprint violations when a player attacks
      * 
      * @param player The player to check
      * @param currentSpeed The current horizontal movement speed
@@ -56,33 +59,33 @@ public class SprintSpeedComponent {
         System.arraycopy(recentSpeeds, 0, recentSpeeds, 1, recentSpeeds.length - 1);
         recentSpeeds[0] = currentSpeed;
 
-        // Calculate expected speed reduction
+        // Calculate expected speed reduction for legitimate players
         double expectedSlowdown = baseSpeed * ATTACK_SLOWDOWN_THRESHOLD;
         double expectedSpeed = baseSpeed - expectedSlowdown;
         
-        // Calculate speed consistency (variation)
-        double speedConsistency = calculateConsistency(recentSpeeds);
+        // Calculate actual slowdown percentage (how much they actually slowed down)
+        double actualSlowdown = baseSpeed - currentSpeed;
+        double slowdownPercentage = actualSlowdown / baseSpeed;
         
-        // Check if the player's speed after attack is too high
-        boolean speedTooHigh = currentSpeed > (expectedSpeed + tolerance);
-        
-        // Check for consistent speeds (minimal variation) which is suspicious
-        boolean tooConsistent = speedConsistency < CONSISTENCY_THRESHOLD && currentSpeed > 0.1;
+        // Check for "keep sprint" cheats (very minimal slowdown)
+        boolean isKeepSprint = slowdownPercentage >= MIN_CHEAT_SLOWDOWN && 
+                              slowdownPercentage <= MAX_CHEAT_SLOWDOWN && 
+                              currentSpeed > (expectedSpeed + tolerance);
 
         // Enhanced debug information (for logging purposes)
         String debugInfo = String.format(
-            "currentSpeed=%.2f, expectedSpeed=%.2f, speedTooHigh=%s, consistency=%.3f, tooConsistent=%s, buffer=%d",
-            currentSpeed, expectedSpeed, speedTooHigh, speedConsistency, tooConsistent, buffer
+            "currentSpeed=%.5f, expectedSpeed=%.5f, slowdownPercentage=%.5f, isKeepSprint=%s, buffer=%d",
+            currentSpeed, expectedSpeed, slowdownPercentage, isKeepSprint, buffer
         );
 
-        // Violation detected if speed is too high or too consistent after attack
-        if ((speedTooHigh || tooConsistent) && isNewAttack) {
+        // Violation detected if "keep sprint" pattern is identified
+        if (isKeepSprint && isNewAttack) {
             buffer++;
             
             // Only flag if buffer threshold is reached
             if (buffer >= BUFFER_THRESHOLD) {
                 // Reset buffer partially after flagging
-                buffer = Math.max(0, buffer - 2);
+                buffer = Math.max(0, buffer - 1);
                 
                 // Check for violations reset timeout
                 if (shouldResetViolations()) {
@@ -101,51 +104,22 @@ public class SprintSpeedComponent {
                 // Create violation data with detailed information
                 return new ViolationData(
                     String.format(
-                        "speed=%.2f, expected=%.2f, base=%.2f, consistent=%.3f, consecutive=%d, %s",
-                        currentSpeed, expectedSpeed, baseSpeed, speedConsistency, consecutiveDetections,
-                        speedTooHigh ? "no-slowdown" : "consistent-movement"
+                        "keepSprint detected: slowdown=%.5f%%, speed=%.5f, expected=%.5f, base=%.5f, consecutive=%d",
+                        slowdownPercentage * 100, currentSpeed, expectedSpeed, baseSpeed, consecutiveDetections
                     ),
                     sprintAttackVL
                 );
             }
-        } else {
-            // Decrease buffer on legitimate moves
+        } else if (slowdownPercentage > MAX_CHEAT_SLOWDOWN && slowdownPercentage < ATTACK_SLOWDOWN_THRESHOLD) {
+            // If slowdown is more than what cheats typically implement but less than legitimate,
+            // we decrease buffer but not as much as with legitimate moves
+            buffer = Math.max(0, buffer - 1);
+        } else if (slowdownPercentage >= ATTACK_SLOWDOWN_THRESHOLD) {
+            // Decrease buffer more for clearly legitimate moves
             buffer = Math.max(0, buffer - BUFFER_DECREMENT);
         }
         
         return null;
-    }
-    
-    /**
-     * Calculate the consistency (lack of variance) in the recent speeds
-     * Lower values indicate more consistent (potentially suspicious) speeds
-     */
-    private double calculateConsistency(double[] speeds) {
-        double sum = 0;
-        int count = 0;
-        
-        for (double speed : speeds) {
-            if (speed > 0) {
-                sum += speed;
-                count++;
-            }
-        }
-        
-        if (count < 2) {
-            return 1.0; // Not enough data to calculate consistency
-        }
-        
-        double avg = sum / count;
-        
-        // Calculate standard deviation
-        double variance = 0;
-        for (double speed : speeds) {
-            if (speed > 0) {
-                variance += Math.pow(speed - avg, 2);
-            }
-        }
-        
-        return Math.sqrt(variance / count) / avg; // Coefficient of variation
     }
     
     /**

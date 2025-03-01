@@ -11,9 +11,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffectType;
 
 /**
- * KillAuraD - Detects players who maintain sprint speed when attacking.
- * In vanilla Minecraft, players should slow down when hitting entities.
- * This has been refactored to use the SprintSpeedComponent.
+ * KillAuraD - Detects players using "keep sprint" cheats that maintain almost full sprint speed when attacking.
+ * In vanilla Minecraft, players should slow down by approximately 60% when hitting entities.
+ * This check specifically targets cheats that implement minimal slowdown (0.0001-0.05) to bypass anti-cheat systems.
  */
 public class KillAuraD extends KillAuraCheck {
 
@@ -83,7 +83,7 @@ public class KillAuraD extends KillAuraCheck {
     }
     
     /**
-     * Process attack packets to check for sprint speed violations
+     * Process attack packets to check for keep sprint violations
      */
     private void processAttack(Player player) {
         // Update attack time
@@ -101,20 +101,25 @@ public class KillAuraD extends KillAuraCheck {
         // Get player status
         boolean sprinting = player.isSprinting();
         
+        // Skip check if player isn't sprinting (no need to check for keep sprint)
+        if (!sprinting) {
+            return;
+        }
+        
         // Calculate tolerance based on ping and potion effects
         double tolerance = calculateTolerance(player);
         
-        // Check for sprint speed violations using the component
+        // Check for keep sprint violations using the component
         ViolationData violationData = sprintSpeedComponent.checkSprintSpeed(
             player, lastSpeed, baseSpeed, sprinting, lastAttackTime, tolerance
         );
         
         // Flag if violation detected
         if (violationData != null) {
-            String details = String.format("%s [sprint=%s, ping=%d]", 
+            String details = String.format("%s [ping=%d, sprinting=%s]", 
                 violationData.getDetails(), 
-                sprinting, 
-                playerData.getPing());
+                playerData.getPing(),
+                sprinting);
                 
             flag(player, details, violationData.getViolationLevel());
             onViolation();
