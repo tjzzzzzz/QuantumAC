@@ -88,6 +88,19 @@ public abstract class Check {
     }
 
     /**
+     * Overloaded method to flag a player for a violation with a specified violation level
+     * This is used by component-based checks
+     *
+     * @param player The player who violated
+     * @param details Technical details about the violation
+     * @param violationLevel The violation level
+     */
+    protected void flag(Player player, String details, int violationLevel) {
+        // Convert the violation level to a double and call the main flag method
+        flag((double) violationLevel, details);
+    }
+
+    /**
      * Executes a punishment command on the player when they reach the max violation level.
      *
      * @param player The player to punish.
