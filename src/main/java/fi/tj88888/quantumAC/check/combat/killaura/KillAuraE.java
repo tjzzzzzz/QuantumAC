@@ -95,12 +95,10 @@ public class KillAuraE extends KillAuraCheck {
         }
     }
     
-    @Override
     public void onViolation() {
         // Called when a violation is detected and logged
     }
     
-    @Override
     public void reset() {
         // Reset component state
         deadPlayerActionComponent.reset();

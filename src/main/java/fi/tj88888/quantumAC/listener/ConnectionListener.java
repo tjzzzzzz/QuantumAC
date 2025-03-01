@@ -4,6 +4,8 @@ import fi.tj88888.quantumAC.QuantumAC;
 import fi.tj88888.quantumAC.check.Check;
 import fi.tj88888.quantumAC.check.movement.*;
 import fi.tj88888.quantumAC.check.movement.fly.FlyA;
+import fi.tj88888.quantumAC.check.movement.fly.FlyB;
+import fi.tj88888.quantumAC.check.movement.fly.FlyC;
 import fi.tj88888.quantumAC.check.packet.TimerA;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

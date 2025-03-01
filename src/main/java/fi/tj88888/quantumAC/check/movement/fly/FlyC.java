@@ -202,7 +202,6 @@ public class FlyC extends FlyCheck {
         wasOnGround = true;
     }
 
-    @Override
     public void reset() {
         resetDetectionState();
     }

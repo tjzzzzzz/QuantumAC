@@ -133,8 +133,8 @@ public class KillAuraD extends KillAuraCheck {
         }
         
         // Apply slowness effect
-        if (player.hasPotionEffect(PotionEffectType.SLOW)) {
-            int amplifier = player.getPotionEffect(PotionEffectType.SLOW).getAmplifier() + 1;
+        if (player.hasPotionEffect(PotionEffectType.SLOWNESS)) {
+            int amplifier = player.getPotionEffect(PotionEffectType.SLOWNESS).getAmplifier() + 1;
             baseSpeed *= 1.0 - (0.15 * amplifier); // 15% decrease per level
         }
         
@@ -171,19 +171,17 @@ public class KillAuraD extends KillAuraCheck {
     /**
      * Check if a packet is a movement packet
      */
-    private boolean isMovementPacket(PacketType type) {
+    protected boolean isMovementPacket(PacketType type) {
         return type == PacketType.Play.Client.POSITION || 
                type == PacketType.Play.Client.POSITION_LOOK || 
                type == PacketType.Play.Client.LOOK ||
                type == PacketType.Play.Client.FLYING;
     }
     
-    @Override
     public void onViolation() {
         // Called when a violation is detected and logged
     }
     
-    @Override
     public void reset() {
         // Reset tracking variables
         lastSpeed = 0.0;

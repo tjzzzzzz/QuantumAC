@@ -144,6 +144,16 @@ public class PlayerData {
         return averagePing;
     }
 
+    /**
+     * Gets the player's current ping.
+     * This is an alias for getAveragePing() to maintain compatibility with refactored code.
+     * 
+     * @return The player's current ping in milliseconds
+     */
+    public int getPing() {
+        return averagePing;
+    }
+
     public void setAveragePing(int averagePing) {
         this.averagePing = averagePing;
     }

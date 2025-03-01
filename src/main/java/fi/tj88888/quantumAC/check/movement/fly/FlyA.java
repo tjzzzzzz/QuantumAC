@@ -10,6 +10,8 @@ import fi.tj88888.quantumAC.check.movement.fly.components.VerticalAccelerationCh
 import fi.tj88888.quantumAC.data.PlayerData;
 import fi.tj88888.quantumAC.util.MovementData;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 /**
  * FlyA - Specialized in detecting gravity and vertical movement violations
@@ -30,9 +32,10 @@ public class FlyA extends FlyCheck {
 
     // Additional tracking to reduce false positives
     private double lastHorizontalSpeed = 0.0;
+    private double lastY = 0.0;
 
     public FlyA(QuantumAC plugin, PlayerData playerData) {
-        super(plugin, playerData, "Fly", "A");
+        super(plugin, playerData, "FlyA");
         
         // Initialize components
         this.gravityCheck = new GravityCheck();
@@ -74,14 +77,14 @@ public class FlyA extends FlyCheck {
         double dz = movementData.getZ() - previousMovementData.getZ();
         lastHorizontalSpeed = Math.sqrt(dx * dx + dz * dz);
 
-        // Update vertical movement history
-        updateVerticalHistory(dy, currentY, onGround);
+        // Update last Y position for next check
+        lastY = currentY;
 
         // Check if player is exempt from checks
         boolean exempt = isExempt(player);
         
         // Get player effects
-        boolean hasSlowFalling = hasSlowFalling(player);
+        boolean hasSlowFalling = player.hasPotionEffect(PotionEffectType.SLOW_FALLING);
         int jumpBoostLevel = getJumpBoostLevel(player);
         
         // Calculate tolerance based on conditions
@@ -114,5 +117,33 @@ public class FlyA extends FlyCheck {
             flag(1.0, motionInconsistencyViolation);
             return;
         }
+    }
+    
+    /**
+     * Gets the jump boost level of a player
+     * 
+     * @param player The player to check
+     * @return The jump boost level (0 if none)
+     */
+    private int getJumpBoostLevel(Player player) {
+        if (player.hasPotionEffect(PotionEffectType.JUMP_BOOST)) {
+            PotionEffect effect = player.getPotionEffect(PotionEffectType.JUMP_BOOST);
+            if (effect != null) {
+                return effect.getAmplifier() + 1;
+            }
+        }
+        return 0;
+    }
+    
+    /**
+     * Reset the state of this check
+     */
+    public void reset() {
+        lastY = 0.0;
+        lastHorizontalSpeed = 0.0;
+        gravityCheck.reset();
+        accelerationCheck.reset();
+        terminalVelocityCheck.reset();
+        motionInconsistencyCheck.reset();
     }
 } 

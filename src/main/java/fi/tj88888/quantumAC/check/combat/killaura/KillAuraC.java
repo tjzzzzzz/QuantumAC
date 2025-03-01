@@ -51,9 +51,7 @@ public class KillAuraC extends KillAuraCheck {
         }
     }
     
-    @Override
     public void reset() {
-        super.reset();
         attackRateComponent.reset();
         attackPatternComponent.reset();
     }

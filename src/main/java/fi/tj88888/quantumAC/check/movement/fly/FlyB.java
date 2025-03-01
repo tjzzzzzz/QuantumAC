@@ -339,10 +339,8 @@ public class FlyB extends FlyCheck {
         balanceStartTime = 0;
     }
 
-    @Override
     public void reset() {
         resetDetectionState();
-        movementHistory.clear();
     }
 
     /**
