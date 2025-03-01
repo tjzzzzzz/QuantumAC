@@ -87,12 +87,22 @@ public class ConnectionListener implements Listener {
 
         Player player = (Player) event.getEntity();
 
-        // Notify SpeedA check about the damage (to prevent false positives)
-        getSpeedACheck(player).onPlayerDamage();
-        getSpeedBCheck(player).onPlayerDamage();
-        getFlyACheck(player).onPlayerDamage();
-        getFlyBCheck(player).onPlayerDamage();
-        getFlyCCheck(player).onPlayerDamage();
+        // Notify checks about the damage (to prevent false positives)
+        // Add null checks to prevent NullPointerExceptions
+        SpeedA speedA = getSpeedACheck(player);
+        if (speedA != null) speedA.onPlayerDamage();
+        
+        SpeedB speedB = getSpeedBCheck(player);
+        if (speedB != null) speedB.onPlayerDamage();
+        
+        FlyA flyA = getFlyACheck(player);
+        if (flyA != null) flyA.onPlayerDamage();
+        
+        FlyB flyB = getFlyBCheck(player);
+        if (flyB != null) flyB.onPlayerDamage();
+        
+        FlyC flyC = getFlyCCheck(player);
+        if (flyC != null) flyC.onPlayerDamage();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -102,13 +112,22 @@ public class ConnectionListener implements Listener {
         Player player = event.getPlayer();
         Vector velocity = event.getVelocity();
 
-        // Notify all necessary checks about the velocity change
-        getFlyACheck(player).onPlayerVelocity(velocity);
-        getFlyBCheck(player).onPlayerVelocity(velocity);
-        getFlyCCheck(player).onPlayerVelocity(velocity);
-        getSpeedACheck(player).onPlayerVelocity(velocity);
-        getSpeedBCheck(player).onPlayerVelocity(velocity);
-
+        // Notify checks about the velocity change
+        // Add null checks to prevent NullPointerExceptions
+        FlyA flyA = getFlyACheck(player);
+        if (flyA != null) flyA.onPlayerVelocity(velocity);
+        
+        FlyB flyB = getFlyBCheck(player);
+        if (flyB != null) flyB.onPlayerVelocity(velocity);
+        
+        FlyC flyC = getFlyCCheck(player);
+        if (flyC != null) flyC.onPlayerVelocity(velocity);
+        
+        SpeedA speedA = getSpeedACheck(player);
+        if (speedA != null) speedA.onPlayerVelocity(velocity);
+        
+        SpeedB speedB = getSpeedBCheck(player);
+        if (speedB != null) speedB.onPlayerVelocity(velocity);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
