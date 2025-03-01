@@ -117,7 +117,7 @@ public class FlyC extends FlyCheck {
             );
             
             if (patternData != null) {
-                flag(player, patternData.getDetails(), patternData.getViolationLevel());
+                flag((double) patternData.getViolationLevel(), patternData.getDetails());
             }
 
             // Detect arc trajectory violations
@@ -130,7 +130,7 @@ public class FlyC extends FlyCheck {
         );
         
         if (phaseData != null) {
-            flag(player, phaseData.getDetails(), phaseData.getViolationLevel());
+            flag((double) phaseData.getViolationLevel(), phaseData.getDetails());
         }
 
         // Update state for next check
@@ -173,7 +173,7 @@ public class FlyC extends FlyCheck {
                     dy, airTicks
                 );
                 
-                flag(player, details, arcTrajectoryVL);
+                flag((double) arcTrajectoryVL, details);
             }
         } else {
             // Decrease buffer on legitimate moves

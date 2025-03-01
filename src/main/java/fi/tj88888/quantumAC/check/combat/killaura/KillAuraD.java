@@ -104,7 +104,8 @@ public class KillAuraD extends KillAuraCheck {
                 playerData.getPing(),
                 sprintSpeedComponent.getThreshold());
                 
-            flag(player, details, violationData.getViolationLevel());
+            // Use the correct flag method with violation level as a double
+            flag((double) violationData.getViolationLevel(), details);
             onViolation();
         }
         

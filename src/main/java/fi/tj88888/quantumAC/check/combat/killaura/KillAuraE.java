@@ -73,7 +73,9 @@ public class KillAuraE extends KillAuraCheck {
         
         // Flag if violation detected
         if (violationData != null) {
-            flag(player, violationData.getDetails(), violationData.getViolationLevel());
+            // Use the correct flag method with violation level as a double
+            flag((double) violationData.getViolationLevel(), violationData.getDetails());
+            onViolation();
         }
     }
     
@@ -91,7 +93,9 @@ public class KillAuraE extends KillAuraCheck {
         
         // Flag if violation detected
         if (violationData != null) {
-            flag(player, violationData.getDetails(), violationData.getViolationLevel());
+            // Use the correct flag method with violation level as a double
+            flag((double) violationData.getViolationLevel(), violationData.getDetails());
+            onViolation();
         }
     }
     

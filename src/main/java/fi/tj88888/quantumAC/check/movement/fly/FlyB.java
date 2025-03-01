@@ -131,7 +131,7 @@ public class FlyB extends FlyCheck {
         );
         
         if (groundSpoofData != null) {
-            flag(player, groundSpoofData.getDetails(), groundSpoofData.getViolationLevel());
+            flag((double) groundSpoofData.getViolationLevel(), groundSpoofData.getDetails());
         }
 
         // Update air time tracking - using server verification for accuracy
@@ -155,7 +155,7 @@ public class FlyB extends FlyCheck {
             );
             
             if (hoverData != null) {
-                flag(player, hoverData.getDetails(), hoverData.getViolationLevel());
+                flag((double) hoverData.getViolationLevel(), hoverData.getDetails());
             }
         }
 
@@ -166,7 +166,7 @@ public class FlyB extends FlyCheck {
             );
             
             if (glideData != null) {
-                flag(player, glideData.getDetails(), glideData.getViolationLevel());
+                flag((double) glideData.getViolationLevel(), glideData.getDetails());
             }
         }
 
@@ -197,7 +197,7 @@ public class FlyB extends FlyCheck {
         );
         
         // This is a serious violation - flag immediately
-        flag(player, details, 10);
+        flag(10.0, details);
     }
 
     /**
@@ -217,7 +217,7 @@ public class FlyB extends FlyCheck {
                         dy, serverVerifiedAirTicks, currentY
                 );
                 
-                flag(player, details, boatFlyVL);
+                flag((double) boatFlyVL, details);
             }
         } else {
             boatFlyBuffer = Math.max(0, boatFlyBuffer - BUFFER_DECREMENT);
