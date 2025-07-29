@@ -10,7 +10,7 @@ database:
   # MongoDB connection settings
   mongodb:
     enabled: true
-    uri: "mongodb+srv://admin:Aw3r6doGWuGOP9ma@minecraft.jtyck.mongodb.net/?retryWrites=true&w=majority&appName=Minecraft"
+    uri: ""
     database: "quantumac"
     username: ""
     password: ""
